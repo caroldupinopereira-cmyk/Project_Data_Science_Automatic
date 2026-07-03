@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DS Generator — Auto-EDA Dashboard | Data Scientists Group 2 ITSB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+</head>
+<body>
+
+  <!-- THREE.JS CANVAS -->
+  <canvas id="three-canvas"></canvas>
+  <div id="three-overlay"></div>
+
+  <!-- GREETING TOAST -->
+  <div class="greeting-toast" id="greeting-toast">
+    <span class="greeting-icon" id="greeting-icon"><i class="fas fa-sun"></i></span>
+    <div>
+      <span class="greeting-text" id="greeting-text">Good Morning!</span>
+      <span class="greeting-sub" id="greeting-sub">Welcome to DS Generator</span>
+    </div>
+    <button class="greeting-close" id="greeting-close" aria-label="Dismiss"><i class="fas fa-times"></i></button>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="{{ url_for('landing') }}" class="nav-brand">
+        <div class="nav-logo">
+          <img src="https://raw.githubusercontent.com/adindaadeliafutri6-gif/logo/main/logo%20itsb.png" alt="ITSB" class="logo-img-landing" onerror="this.style.display='none'; document.getElementById('logo-fallback-landing').style.display='flex';">
+          <div id="logo-fallback-landing" style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">
+            <i class="fas fa-chart-simple"></i>
+          </div>
+        </div>
+        <div class="nav-brand-text">
+          <h1>DS Generator</h1>
+          <span>Auto-EDA Dashboard</span>
+        </div>
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="#features" class="nav-link" data-i18n="land_nav_platform">Features</a>
+        <a href="#tutorial" class="nav-link" data-i18n="land_nav_tutorials">Tutorials</a>
+        <a href="#members" class="nav-link" data-i18n="land_nav_team">Team</a>
+      </div>
+      <a href="{{ url_for('auth.register') }}" class="nav-cta">
+        <span data-i18n="nav_getstarted">Get Started</span> <i class="fas fa-arrow-right"></i>
+      </a>
+      <select id="lang-selector" class="lang-select" style="background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:.8rem;font-weight:600;cursor:pointer;">
+        <option value="en">EN</option>
+        <option value="id">ID</option>
+      </select>
+      <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="hero-grid">
+      <div class="hero-text-col">
+        <span class="hero-badge" data-delay="0">
+          <i class="fas fa-chart-simple"></i> <span data-i18n="land_hero_badge">AUTOMATED DATA ANALYSIS — FINAL PROJECT</span>
+        </span>
+        <h1 class="hero-title" data-delay="100" data-i18n="land_hero_title">
+          Automated Data Analysis with<br>
+          <span class="hero-title-gradient">Auto-EDA.</span>
+        </h1>
+        <p class="hero-sub" data-delay="250" data-i18n="land_hero_sub">
+          Upload your dataset and obtain descriptive statistics, interactive visualizations,
+          and intelligent insights automatically in seconds.
+        </p>
+        <div class="hero-btns" data-delay="400">
+          <a href="{{ url_for('auth.register') }}" class="btn-primary">
+            <span data-i18n="land_hero_cta">Start Analysis</span> <i class="fas fa-arrow-right"></i>
+          </a>
+          <a href="#tutorial" class="btn-secondary">
+            <i class="fas fa-play-circle"></i> <span data-i18n="land_hero_tutorial">View Tutorial</span>
+          </a>
+        </div>
+        <div class="hero-stats" data-delay="550">
+          <div class="hero-stat">
+            <span class="hero-stat-value" data-i18n="land_stat_multi">Multi-Format</span>
+            <span class="hero-stat-label" data-i18n="land_stat_multi_sub">CSV, Excel, TXT Support</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-value" data-i18n="land_stat_autoeda">Auto-EDA</span>
+            <span class="hero-stat-label" data-i18n="land_stat_autoeda_sub">Intelligent Engine</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-value" data-i18n="land_stat_charts">15+</span>
+            <span class="hero-stat-label" data-i18n="land_stat_charts_sub">Interactive Charts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene Indicator -->
+    <div class="scene-indicator" id="scene-indicator">
+      <span class="scene-label">Visualization</span>
+      <div class="scene-dots">
+        <button class="scene-dot active" data-index="0" aria-label="Bar Chart 3D"></button>
+        <button class="scene-dot" data-index="1" aria-label="Scatter Plot 3D"></button>
+        <button class="scene-dot" data-index="2" aria-label="Wave Chart 3D"></button>
+        <button class="scene-dot" data-index="3" aria-label="Heatmap Grid 3D"></button>
+        <button class="scene-dot" data-index="4" aria-label="Distribution Curve 3D"></button>
+      </div>
+      <span class="scene-name" id="scene-name">Bar Chart 3D</span>
+    </div>
+  </section>
+
+  <!-- FEATURES: Bento Grid -->
+  <section class="section" id="features">
+    <div class="section-header reveal">
+      <span class="section-label" data-i18n="land_feat_label">Key Features</span>
+      <h2 class="section-title" data-i18n="land_feat_title">Powerful <span class="gradient-text">Data Analysis</span> Tools</h2>
+    </div>
+    <div class="features-bento">
+      <div class="bento-card bento-main reveal reveal-d1">
+        <div class="bento-icon">
+          <i class="fas fa-folder-open"></i>
+        </div>
+        <h3 data-i18n="land_feat1_title">Multi-Format Upload</h3>
+        <p data-i18n="land_feat1_desc">Upload datasets in CSV, Excel (XLSX), or TXT format. The system automatically detects delimiters and encoding with high precision.</p>
+        <div class="bento-tags">
+          <span>.csv</span>
+          <span>.xlsx</span>
+          <span>.txt</span>
+        </div>
+      </div>
+      <div class="bento-card reveal reveal-d1">
+        <div class="bento-icon" style="--fc:var(--accent-cyan);">
+          <i class="fas fa-robot"></i>
+        </div>
+        <h3 data-i18n="land_feat2_title">Automatic Data Type Detection</h3>
+        <p data-i18n="land_feat2_desc">Automatic detection of data types: Numeric, Categorical, Datetime, and Text. Zero configuration required.</p>
+      </div>
+      <div class="bento-card reveal reveal-d2">
+        <div class="bento-icon" style="--fc:var(--accent-purple);">
+          <i class="fas fa-calculator"></i>
+        </div>
+        <h3 data-i18n="land_feat3_title">Descriptive Statistics</h3>
+        <p data-i18n="land_feat3_desc">Mean, Median, Standard Deviation, and Quartiles are computed instantly for every numeric column.</p>
+      </div>
+      <div class="bento-card bento-wide reveal reveal-d2">
+        <div class="bento-row">
+          <div class="bento-icon" style="--fc:var(--accent-cyan);">
+            <i class="fas fa-table"></i>
+          </div>
+          <div>
+            <h3 data-i18n="land_feat4_title">Smart Preview Dashboard</h3>
+            <p data-i18n="land_feat4_desc">Interactive Data Explorer with table preview, sorting, and dynamic filtering.</p>
+          </div>
+        </div>
+        <a href="{{ url_for('auth.register') }}" class="bento-btn">
+          <span data-i18n="land_feat4_btn">Explore Preview</span> <i class="fas fa-eye arrow-icon"></i>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- TUTORIAL -->
+  <section class="section section-tutorial" id="tutorial">
+    <div class="section-header reveal">
+      <span class="section-label" data-i18n="land_tut_label">How to Use</span>
+      <h2 class="section-title" data-i18n="land_tut_title">Get Started in <span class="gradient-text">3 Easy Steps</span></h2>
+    </div>
+    <div class="tutorial-grid">
+      <div class="tutorial-card reveal reveal-d1">
+        <div class="tutorial-num">1</div>
+        <div class="tutorial-icon">
+          <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <h3 data-i18n="land_tut1_title">Upload Your Dataset</h3>
+        <p data-i18n="land_tut1_desc">Upload a CSV, Excel, or TXT file. The system will automatically prepare the dataset for analysis.</p>
+      </div>
+      <div class="tutorial-card reveal reveal-d2">
+        <div class="tutorial-num">2</div>
+        <div class="tutorial-icon">
+          <i class="fas fa-microchip"></i>
+        </div>
+        <h3 data-i18n="land_tut2_title">Automated Analysis System</h3>
+        <p data-i18n="land_tut2_desc">The Auto-EDA engine detects patterns and generates interactive visualizations automatically.</p>
+      </div>
+      <div class="tutorial-card reveal reveal-d3">
+        <div class="tutorial-num">3</div>
+        <div class="tutorial-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <h3 data-i18n="land_tut3_title">Explore Insights</h3>
+        <p data-i18n="land_tut3_desc">Explore results through an interactive dashboard or download the processed dataset.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROJECT MEMBERS -->
+  <section class="section" id="members">
+    <div class="section-header reveal">
+      <span class="section-label" data-i18n="land_team_label">Our Team</span>
+      <h2 class="section-title" data-i18n="land_team_title">Data Scientists Group <span class="gradient-text">2</span> — ITSB</h2>
+      <p class="section-sub" data-i18n="land_team_sub">Data Science Programming — Final Project 2026</p>
+    </div>
+    <div class="members-grid">
+      <div class="member-card reveal reveal-d1">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/caroldupinopereira-cmyk/carol/main/carol_1-removebg-preview.png"
+               alt="Carol" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Carol+Dupino+Pereira&background=2563eb&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Carol Dupino Pereira</h3>
+        <span class="member-nim">52250051</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/caroldupinopereira-cmyk" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/Dupino" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+      <div class="member-card reveal reveal-d1">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/adindaadeliafutri6-gif/refan/main/Foto_refan-removebg-preview.png"
+               alt="Refantanur" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Refantanur+Husnul+H&background=06b6d4&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Refantanur Husnul H.</h3>
+        <span class="member-nim">52250052</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/refantanjung23-wq" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/Refantanur" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+      <div class="member-card reveal reveal-d2">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/cahayasemidang-max/foto/cfc8d91ef344fb1beba4eadb93e4be67168bc2b8/FotoCahaya.png"
+               alt="Cahaya" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Cahaya+Medina+Semidang&background=2563eb&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Cahaya Medina Semidang</h3>
+        <span class="member-nim">52250053</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/cahayasemidang-max" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/cahayaa23" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+      <div class="member-card reveal reveal-d2">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/raihaniasyahputri/Foto_lulu/696dc3e134536210f870e9d5230b8fbeaad40e0d/IMG-20251129-WA0001.png"
+               alt="Raihania" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Raihania+Syah+Putri&background=06b6d4&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Raihania Syah Putri</h3>
+        <span class="member-nim">52250054</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/raihaniasyahputri" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/raihania496" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+      <div class="member-card reveal reveal-d3">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/cahayasemidang-max/foto/b7534990c32ff093c6cb2faefc6282f5f6079296/FotoCloise.png"
+               alt="Cloise" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Cloise+Shafira&background=2563eb&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Cloise Shafira</h3>
+        <span class="member-nim">52250044</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/xcoliyyyzz1/cloi" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/coliyyzzz1" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+      <div class="member-card reveal reveal-d3">
+        <div class="member-avatar-wrap">
+          <img src="https://raw.githubusercontent.com/caroldupinopereira-cmyk/adinda/main/adinda_baru-removebg-preview.png"
+               alt="Adinda" class="member-avatar"
+               onerror="this.src='https://ui-avatars.com/api/?name=Adinda+Adelia+Futri&background=06b6d4&color=fff&size=120'">
+        </div>
+        <h3 class="member-name">Adinda Adelia Futri</h3>
+        <span class="member-nim">52250055</span>
+        <span class="member-role">Data Scientist</span>
+        <div class="member-links">
+          <a href="https://github.com/adindaadeliafutri6-gif" target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="https://rpubs.com/futri0055" target="_blank" aria-label="RPubs"><i class="fas fa-chart-bar"></i></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <i class="fas fa-chart-simple"></i>
+        </div>
+        <div class="footer-brand-text">
+          <h3>DS Generator</h3>
+          <span data-i18n="land_footer_sub">Auto-EDA Dashboard — Group 2</span>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="#features" data-i18n="land_nav_platform">Features</a>
+        <a href="#tutorial" data-i18n="land_footer_doc">Documentation</a>
+        <a href="#members" data-i18n="land_nav_team">Team</a>
+        <a href="{{ url_for('auth.register') }}" data-i18n="nav_getstarted">Get Started</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p data-i18n="land_footer_copy">&copy; 2026 DS Generator — Group 2. Institut Teknologi Sains Bandung (ITSB). All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- ─── Three.js CDN — URUTAN WAJIB TEPAT ─── -->
+
+  <!-- 1. Core Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- 2. Loaders -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- 3. Shaders — HARUS SEBELUM postprocessing -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+
+  <!-- 4. Post-processing — URUTAN INI TIDAK BOLEH DIUBAH -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+  <!-- 5. GSAP animasi -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <!-- 6. Script project — SELALU PALING TERAKHIR -->
+  <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - DS Generator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: Inter, sans-serif;
+      background: #070f1f;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .login-bg {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(55, 138, 221, .24), transparent 34%),
+        radial-gradient(circle at 82% 12%, rgba(5, 205, 153, .16), transparent 30%),
+        linear-gradient(135deg, #070f1f 0%, #101b33 100%);
+    }
+
+    .login-shell {
+      position: relative;
+      z-index: 1;
+      width: min(92vw, 430px);
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 18px;
+      padding: 34px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.42);
+      backdrop-filter: blur(18px);
+    }
+
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+
+    .login-brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #378add, #05cd99);
+      color: #fff;
+    }
+
+    .login-brand h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+
+    .login-brand p {
+      margin: 2px 0 0;
+      color: rgba(255,255,255,.62);
+      font-size: .82rem;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .login-field label {
+      display: block;
+      margin-bottom: 7px;
+      color: rgba(255,255,255,.72);
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .login-input-wrap {
+      position: relative;
+    }
+
+    .login-input-wrap i {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255,255,255,.48);
+    }
+
+    .login-input-wrap input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px 14px 13px 42px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      outline: none;
+      font-size: .95rem;
+    }
+
+    .login-input-wrap input:focus {
+      border-color: #85b7eb;
+      background: rgba(255,255,255,.12);
+    }
+
+    .login-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .login-btn {
+      flex: 1;
+      border: 0;
+      border-radius: 10px;
+      padding: 13px 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #fff;
+      background: #378add;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .login-btn.secondary {
+      flex: 0 0 auto;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.15);
+      color: rgba(255,255,255,.78);
+    }
+
+    .login-note {
+      margin-top: 18px;
+      color: rgba(255,255,255,.55);
+      font-size: .78rem;
+      line-height: 1.55;
+    }
+
+    .login-lang-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 14px;
+    }
+    .login-lang-row select {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-bg"></div>
+  <main class="login-shell">
+    <!-- Language selector -->
+    <div class="login-lang-row">
+      <select id="lang-selector-standalone">
+        <option value="en">🌐 EN</option>
+        <option value="id">🇮🇩 ID</option>
+      </select>
+    </div>
+
+    <div class="login-brand">
+      <div class="login-brand-icon"><i class="fas fa-chart-simple"></i></div>
+      <div>
+        <h1 data-i18n="login.title">Login DS Generator</h1>
+        <p data-i18n="login.subtitle">Masuk dulu agar dataset dan recent file tetap milik user masing-masing.</p>
+      </div>
+    </div>
+
+    <form class="login-form" method="POST" action="{{ url_for('login', next=next_url) }}">
+      <div class="login-field">
+        <label for="name" data-i18n="login.name_label">Nama User</label>
+        <div class="login-input-wrap">
+          <i class="fas fa-user"></i>
+          <input id="name" name="name" type="text" data-i18n-placeholder="login.name_ph" placeholder="Contoh: Carol" required autofocus>
+        </div>
+      </div>
+
+      <div class="login-field">
+        <label for="role" data-i18n="login.role_label">Role</label>
+        <div class="login-input-wrap">
+          <i class="fas fa-briefcase"></i>
+          <input id="role" name="role" type="text" value="Data Analyst">
+        </div>
+      </div>
+
+      <div class="login-actions">
+        <a class="login-btn secondary" href="{{ url_for('index') }}" title="Back">
+          <i class="fas fa-arrow-left"></i>
+        </a>
+        <button class="login-btn" type="submit">
+          <i class="fas fa-right-to-bracket"></i>
+          <span data-i18n="login.btn_submit">Login</span>
+        </button>
+      </div>
+    </form>
+
+    <p class="login-note" data-i18n="login.note">Setiap user mendapat folder upload sendiri, jadi recent dataset dan session cleaning tidak akan tercampur.</p>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+
+  <!-- Flash messages via SweetAlert2 (no raw HTML entities) -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      {% for category, message in messages %}
+      (function() {
+        var cat  = {{ category | tojson }};
+        var msg  = {{ message  | tojson }};
+        var icon = (cat === 'error') ? 'error' : (cat === 'info' ? 'info' : 'success');
+        var title= (cat === 'error') ? 'Oops...' : (cat === 'info' ? 'ℹ️ Info' : '✅ Success!');
+        Swal.fire({
+          icon: icon,
+          title: title,
+          text: msg,
+          confirmButtonColor: '#4318ff',
+          timer: 4000,
+          timerProgressBar: true,
+          showConfirmButton: (cat === 'error')
+        });
+      })();
+      {% endfor %}
+    });
+  </script>
+  {% endif %}
+  {% endwith %}
+</body>
+</html>

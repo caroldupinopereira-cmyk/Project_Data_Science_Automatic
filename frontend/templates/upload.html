@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* ── Upload Page Styles (scoped) ───────────────────────────── */
+
+/* Page header */
+.upload-page-header { margin-bottom: 28px; }
+.upload-page-header h2 {
+    font-size: 1.3rem; font-weight: 800; color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+}
+.upload-page-header p { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+
+/* Two-column grid */
+.upload-page-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 900px) { .upload-page-wrapper { grid-template-columns: 1fr; } }
+
+/* Prevent right column from causing layout shift */
+.upload-page-wrapper > .history-card-wrap {
+    display: flex;
+    flex-direction: column;
+    max-height: 680px;
+    overflow: hidden;
+}
+
+/* ── Left: Upload Card ── */
+.upload-card { padding: 32px; }
+
+.upload-card-header { margin-bottom: 24px; }
+.upload-card-header h3 {
+    font-size: 1.05rem; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.upload-card-header p { font-size: 0.82rem; color: var(--muted); }
+
+/* Format badges row */
+.format-badges { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.fmt-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    border: 1.5px solid;
+}
+.fmt-badge.csv  { background: #d1f3e0; color: #027a5a; border-color: #05cd99; }
+.fmt-badge.xlsx { background: #e9e3ff; color: #4318ff; border-color: #868cff; }
+.fmt-badge.txt  { background: #fff8d6; color: #7d6400; border-color: #ffce20; }
+
+/* Dropzone */
+.modern-dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 44px 24px;
+    background: var(--bg);
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s ease;
+    position: relative;
+    overflow: hidden;
+}
+.modern-dropzone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--blue-light) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity .25s ease;
+    pointer-events: none;
+}
+.modern-dropzone:hover,
+.modern-dropzone.dragover {
+    border-color: var(--blue);
+    border-style: solid;
+    background: var(--card-bg);
+}
+.modern-dropzone:hover::before,
+.modern-dropzone.dragover::before { opacity: 1; }
+
+.dropzone-icon-wrap {
+    width: 72px; height: 72px;
+    background: var(--blue-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+    transition: transform .25s ease;
+}
+.modern-dropzone:hover .dropzone-icon-wrap { transform: scale(1.1) translateY(-4px); }
+.dropzone-icon-wrap i { font-size: 1.8rem; color: var(--blue); }
+
+.modern-dropzone h3 { color: var(--text); font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.modern-dropzone p  { color: var(--muted); font-size: 0.82rem; margin-bottom: 14px; }
+
+.btn-browse {
+    background: var(--blue);
+    color: #fff;
+    padding: 9px 22px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all .2s;
+}
+.btn-browse:hover { background: #3110c4; transform: translateY(-1px); }
+
+.file-name-display {
+    display: none;
+    margin-top: 16px;
+    padding: 10px 16px;
+    background: var(--green-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #027a5a;
+    align-items: center;
+    gap: 8px;
+}
+.file-name-display.visible { display: flex; }
+
+/* Progress bar */
+.upload-progress-wrap {
+    display: none;
+    margin-top: 16px;
+    background: var(--border);
+    border-radius: 20px;
+    height: 6px;
+    overflow: hidden;
+}
+.upload-progress-wrap.visible { display: block; }
+.upload-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    border-radius: 20px;
+    transition: width .4s ease;
+}
+
+/* Analyze button */
+.btn-analyze {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+    color: #fff;
+    border: none;
+    padding: 14px 28px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 20px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all .25s ease;
+    position: relative;
+    overflow: hidden;
+}
+.btn-analyze::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,.12);
+    opacity: 0;
+    transition: opacity .2s;
+}
+.btn-analyze:hover:not(:disabled)::after { opacity: 1; }
+.btn-analyze:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(67,24,255,.35); }
+.btn-analyze:disabled {
+    background: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Info row below button */
+.upload-info-row {
+    display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap;
+}
+.upload-info-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; color: var(--muted);
+}
+.upload-info-item i { color: var(--green); }
+
+/* ── Right: History Card ── */
+.history-card-wrap { padding: 24px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.history-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px; flex-shrink: 0;
+}
+.history-header h3 {
+    font-size: 1.05rem; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+}
+.history-count {
+    font-size: 0.72rem; font-weight: 700;
+    background: var(--blue-light); color: var(--blue);
+    padding: 3px 10px; border-radius: 20px;
+}
+.history-subtext { font-size: 0.8rem; color: var(--muted); margin-bottom: 20px; flex-shrink: 0; }
+
+/* Search bar */
+.history-search-wrap {
+    position: relative;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+.history-search-wrap i {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 0.85rem;
+}
+.history-search {
+    width: 100%;
+    padding: 10px 14px 10px 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color .2s;
+}
+.history-search:focus { border-color: var(--blue); }
+
+/* History list — fixed height, scrolls internally */
+.history-grid {
+    display: flex; flex-direction: column; gap: 10px;
+    flex: 1; min-height: 0;
+    max-height: 420px; overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.history-grid::-webkit-scrollbar { width: 5px; }
+.history-grid::-webkit-scrollbar-track { background: transparent; }
+.history-grid::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 10px;
+}
+.history-grid::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+.history-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all .2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.history-card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--blue);
+    transform: scaleY(0);
+    transition: transform .2s ease;
+    border-radius: 3px 0 0 3px;
+}
+.history-card:hover { background: var(--card-bg); border-color: var(--blue); transform: translateX(4px); }
+.history-card:hover::before { transform: scaleY(1); }
+
+.hist-file-icon {
+    width: 42px; height: 42px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.hist-file-icon.csv  { background: var(--green-light); color: #027a5a; }
+.hist-file-icon.xlsx { background: var(--blue-light);  color: var(--blue); }
+.hist-file-icon.txt  { background: var(--orange-light); color: #7d6400; }
+
+.hist-details { flex: 1; min-width: 0; }
+.hist-details h4 {
+    font-size: 0.88rem; font-weight: 600; color: var(--text);
+    margin-bottom: 4px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+}
+.hist-details .hist-meta { display: flex; gap: 8px; align-items: center; }
+
+.badge-analyzed {
+    font-size: 0.68rem; background: var(--green-light); color: #027a5a;
+    padding: 2px 8px; border-radius: 20px; font-weight: 700;
+}
+
+.hist-arrow {
+    color: var(--muted); font-size: 0.8rem;
+    transition: color .2s, transform .2s;
+    flex-shrink: 0;
+}
+.history-card:hover .hist-arrow { color: var(--blue); transform: translateX(3px); }
+
+/* Empty state */
+.empty-history {
+    text-align: center; padding: 48px 20px; color: var(--muted);
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.empty-history .empty-icon {
+    width: 64px; height: 64px;
+    background: var(--bg); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+    font-size: 1.5rem; color: var(--muted);
+}
+.empty-history h4 { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.empty-history p { font-size: 0.82rem; }
+
+/* ── Tip Card ── */
+.tip-card {
+    margin-top: 20px;
+    background: linear-gradient(135deg, var(--blue-light) 0%, var(--purple-light) 100%);
+    border: 1px solid var(--blue);
+    border-radius: var(--radius-sm);
+    padding: 16px 18px;
+    display: flex; gap: 12px; align-items: flex-start;
+    flex-shrink: 0;
+}
+.tip-card i { color: var(--blue); font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+.tip-card p { font-size: 0.8rem; color: var(--text); line-height: 1.6; }
+.tip-card strong { color: var(--blue); }
+
+/* Dataset info preview (shown after file pick) */
+.file-preview-info {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    gap: 16px;
+}
+.file-preview-info.visible { display: flex; flex-wrap: wrap; }
+.file-info-item { display: flex; flex-direction: column; gap: 2px; }
+.file-info-item .fi-label { font-size: 0.7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.file-info-item .fi-value { font-size: 0.88rem; color: var(--text); font-weight: 700; }
+</style>
+
+<!-- ── Page Header ── -->
+<div class="upload-page-header">
+    <h2><i class="fas fa-cloud-upload-alt text-blue"></i> <span data-translate="upload_title">Upload Dataset</span></h2>
+    <p data-translate="upload_subtitle">Upload your data file to begin automatic exploratory analysis</p>
+</div>
+
+<div class="upload-page-wrapper">
+
+    <!-- ═══════════════════ KIRI: UPLOAD FORM ═══════════════════ -->
+    <div class="card upload-card">
+        <div class="upload-card-header">
+            <h3><i class="fas fa-file-import text-blue"></i> <span data-translate="upload_select_title">Select Your File</span></h3>
+            <p data-translate="upload_select_desc">Drag &amp; drop or browse to upload. Max file size: 100 MB.</p>
+        </div>
+
+        <!-- Format badges -->
+        <div class="format-badges">
+            <span class="fmt-badge csv"><i class="fas fa-file-csv"></i> CSV</span>
+            <span class="fmt-badge xlsx"><i class="fas fa-file-excel"></i> XLSX</span>
+            <span class="fmt-badge txt"><i class="fas fa-file-alt"></i> TXT</span>
+        </div>
+
+        <form id="upload-form" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+            <!-- Dropzone -->
+            <div class="modern-dropzone" id="dropzone"
+                 ondragover="handleDragOver(event)"
+                 ondragleave="handleDragLeave(event)"
+                 ondrop="handleDrop(event)"
+                 onclick="document.getElementById('file-input').click()">
+                <div class="dropzone-icon-wrap">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h3 data-translate="upload_drop_title">Drag &amp; drop your file here</h3>
+                <p data-translate="upload_drop_desc">Supported: .csv, .xlsx, .txt</p>
+                <input type="file" id="file-input" name="file"
+                       accept=".csv, .xlsx, .txt" required hidden
+                       onchange="handleFileSelect(this)">
+                <label class="btn-browse" onclick="event.stopPropagation();"
+                       for="file-input">
+                    <i class="fas fa-folder-open"></i> <span data-translate="upload_browse">Browse File</span>
+                </label>
+            </div>
+
+            <!-- File selected display -->
+            <div class="file-name-display" id="file-name-display">
+                <i class="fas fa-check-circle"></i>
+                <span id="file-name-text">File selected</span>
+            </div>
+
+            <!-- File preview info row -->
+            <div class="file-preview-info" id="file-preview-info">
+                <div class="file-info-item">
+                    <span class="fi-label" data-translate="upload_fi_name">File Name</span>
+                    <span class="fi-value" id="fi-name">—</span>
+                </div>
+                <div class="file-info-item">
+                    <span class="fi-label" data-translate="upload_fi_size">File Size</span>
+                    <span class="fi-value" id="fi-size">—</span>
+                </div>
+                <div class="file-info-item">
+                    <span class="fi-label" data-translate="upload_fi_format">Format</span>
+                    <span class="fi-value" id="fi-type">—</span>
+                </div>
+            </div>
+
+            <!-- Progress (shown on submit) -->
+            <div class="upload-progress-wrap" id="upload-progress-wrap">
+                <div class="upload-progress-bar" id="upload-progress-bar"></div>
+            </div>
+
+            <!-- Submit button -->
+            <button type="submit" class="btn-analyze" id="btn-submit" disabled>
+                <i class="fas fa-cogs"></i>
+                <span data-translate="upload_analyze">Analyze Dataset</span>
+            </button>
+        </form>
+
+        <!-- Upload info hints -->
+        <div class="upload-info-row">
+            <span class="upload-info-item"><i class="fas fa-shield-alt"></i> <span data-translate="upload_secure">Secure upload</span></span>
+            <span class="upload-info-item"><i class="fas fa-bolt"></i> <span data-translate="upload_fast">Auto-EDA in seconds</span></span>
+            <span class="upload-info-item"><i class="fas fa-database"></i> <span data-translate="upload_max">Max 100 MB</span></span>
+        </div>
+
+        <!-- Tip card -->
+        <div class="tip-card">
+            <i class="fas fa-lightbulb"></i>
+            <p><strong data-translate="upload_tip_title">Pro tip:</strong> <span data-translate="upload_tip_text">For best results, ensure your CSV uses comma delimiters and the first row contains column headers. Datetime columns are auto-detected for time series analysis.</span></p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ KANAN: HISTORY ═══════════════════ -->
+    <div class="card history-card-wrap">
+        <div class="history-header">
+            <h3><i class="fas fa-history text-purple"></i> <span data-translate="upload_recent_title">Recent Datasets</span></h3>
+            {% if history %}
+            <span class="history-count">{{ history|length }} file{{ 's' if history|length != 1 else '' }}</span>
+            {% endif %}
+        </div>
+        <p class="history-subtext" data-translate="upload_recent_sub">Click any previous dataset to instantly reload its analysis.</p>
+
+        {% if history %}
+        <!-- Search -->
+        <div class="history-search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" class="history-search" id="history-search"
+                   data-translate-placeholder="upload_search_ph"
+                   placeholder="Search datasets..."
+                   oninput="filterHistory(this.value)">
+        </div>
+
+        <div class="history-grid" id="history-grid">
+            {% for file in history %}
+            {% set ext = file.rsplit('.', 1)[-1].lower() if '.' in file else 'txt' %}
+            <a href="{{ url_for('dashboard', filename=file) }}"
+               class="history-card" data-filename="{{ file }}">
+                <!-- Icon -->
+                <div class="hist-file-icon {{ ext }}">
+                    {% if ext == 'csv' %}
+                        <i class="fas fa-file-csv"></i>
+                    {% elif ext == 'xlsx' %}
+                        <i class="fas fa-file-excel"></i>
+                    {% else %}
+                        <i class="fas fa-file-alt"></i>
+                    {% endif %}
+                </div>
+                <!-- Details -->
+                <div class="hist-details">
+                    <h4 title="{{ file }}">{{ file }}</h4>
+                    <div class="hist-meta">
+                        <span class="badge-analyzed"><i class="fas fa-check-circle"></i> <span data-translate="upload_badge">Analyzed</span></span>
+                        <span class="text-muted" style="font-size:0.72rem;">{{ ext|upper }}</span>
+                    </div>
+                </div>
+                <!-- Arrow -->
+                <i class="fas fa-chevron-right hist-arrow"></i>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <!-- Empty state -->
+        <div class="empty-history">
+            <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+            <h4 data-translate="upload_empty_title">No datasets yet</h4>
+            <p data-translate="upload_empty_desc">Upload your first dataset to get started.<br>It will appear here for quick access.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ── Inline Scripts ── -->
+<script>
+/* ── Drag & Drop ─────────────────────────────────────────── */
+function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('dropzone').classList.add('dragover');
+}
+function handleDragLeave(e) {
+    document.getElementById('dropzone').classList.remove('dragover');
+}
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropzone').classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const input = document.getElementById('file-input');
+        // Create a DataTransfer to assign files
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        input.files = dt.files;
+        updateFileUI(files[0]);
+    }
+}
+
+/* ── File select handler ─────────────────────────────────── */
+function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+        updateFileUI(input.files[0]);
+    }
+}
+
+function updateFileUI(file) {
+    const allowed = ['csv', 'xlsx', 'txt'];
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (!allowed.includes(ext)) {
+        Swal.fire({
+            icon: 'error', title: 'Format Not Supported',
+            text: 'Please upload a .csv, .xlsx, or .txt file.',
+            confirmButtonColor: '#4318ff'
+        });
+        return;
+    }
+
+    // Show file name
+    const display = document.getElementById('file-name-display');
+    document.getElementById('file-name-text').textContent = file.name;
+    display.classList.add('visible');
+
+    // Show file info row
+    const sizeKB  = (file.size / 1024).toFixed(1);
+    const sizeFmt = file.size > 1024*1024
+        ? (file.size / (1024*1024)).toFixed(2) + ' MB'
+        : sizeKB + ' KB';
+
+    document.getElementById('fi-name').textContent = file.name;
+    document.getElementById('fi-size').textContent = sizeFmt;
+    document.getElementById('fi-type').textContent = ext.toUpperCase();
+    document.getElementById('file-preview-info').classList.add('visible');
+
+    // Enable button
+    document.getElementById('btn-submit').disabled = false;
+}
+
+/* ── Submit: animate progress bar ───────────────────────── */
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+    const btn  = document.getElementById('btn-submit');
+    const wrap = document.getElementById('upload-progress-wrap');
+    const bar  = document.getElementById('upload-progress-bar');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>' + (typeof TRANSLATIONS !== 'undefined' ? (TRANSLATIONS[localStorage.getItem('ds-lang') || 'en'].upload_analyzing || 'Analyzing…') : 'Analyzing…') + '</span>';
+    wrap.classList.add('visible');
+
+    // Fake progress animation
+    let pct = 0;
+    const iv = setInterval(() => {
+        pct = Math.min(pct + Math.random() * 18, 90);
+        bar.style.width = pct + '%';
+        if (pct >= 90) clearInterval(iv);
+    }, 220);
+});
+
+/* ── History search filter ───────────────────────────────── */
+function filterHistory(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('#history-grid .history-card').forEach(card => {
+        const name = card.dataset.filename.toLowerCase();
+        card.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+}
+</script>
+
+{% endblock %}

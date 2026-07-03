@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DS Generator — Kelompok 2 ITSB</title>
+
+    <script src="{{ url_for('static', filename='js/plotly.min.js') }}"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        /* ═══════════════════════════════════════════════════════
+       SIDEBAR — Accordion + Mini Mode (Complete Rewrite)
+    ═══════════════════════════════════════════════════════ */
+        :root {
+            --sidebar-w: 260px;
+            --sidebar-mini-w: 64px;
+            --ease: cubic-bezier(.4, 0, .2, 1);
+            --dur: .26s;
+        }
+
+        .layout-wrapper {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        /* ── Sidebar shell ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            height: 100vh;
+            flex-shrink: 0;
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: visible;
+            transition: width var(--dur) var(--ease), min-width var(--dur) var(--ease);
+            position: relative;
+            z-index: 100;
+        }
+
+        .sidebar.mini {
+            width: var(--sidebar-mini-w);
+            min-width: var(--sidebar-mini-w);
+        }
+
+        /* ── Brand ── */
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 20px 16px 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            margin-bottom: 8px;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #868cff, #4318ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, #868cff, #4318ff);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .brand-text {
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity var(--dur) var(--ease), max-width var(--dur) var(--ease);
+            max-width: 180px;
+            opacity: 1;
+        }
+
+        .sidebar.mini .brand-text {
+            max-width: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .brand-text h2 {
+            font-size: .92rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .brand-text p {
+            font-size: .65rem;
+            color: var(--muted);
+            margin-top: 1px;
+            white-space: nowrap;
+        }
+
+        /* Sidebar toggle button removed - hover-based toggle implemented */
+
+        /* ── Nav scroll container ── */
+        .nav-menu {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0 8px 16px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .08) transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .nav-menu::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .1);
+            border-radius: 4px;
+        }
+
+        /* ── Section labels ── */
+        .nav-section-label {
+            font-size: .58rem;
+            color: #4a5568;
+            font-weight: 700;
+            letter-spacing: 1.4px;
+            padding: 14px 8px 4px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity var(--dur), max-height var(--dur), padding var(--dur);
+            max-height: 40px;
+            opacity: 1;
+        }
+
+        .sidebar.mini .nav-section-label {
+            opacity: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            pointer-events: none;
+        }
+
+        /* ── Nav item base ── */
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-item>a,
+        .nav-acc-trigger {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 10px;
+            color: var(--muted);
+            text-decoration: none;
+            border-radius: 9px;
+            font-size: .84rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: background .18s, color .18s;
+            cursor: pointer;
+            width: 100%;
+            background: none;
+            border: none;
+            font-family: inherit;
+            text-align: left;
+        }
+
+        .nav-item>a:hover,
+        .nav-item.active>a,
+        .nav-acc-trigger:hover,
+        .nav-acc-trigger.open {
+            background: rgba(255, 255, 255, .10);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* ── Icon — always 18px wide, never hides ── */
+        .nav-icon {
+            width: 18px;
+            min-width: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: .88rem;
+        }
+
+        /* ── Label — fades in mini mode ── */
+        .nav-label {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: opacity var(--dur), max-width var(--dur);
+            max-width: 200px;
+            opacity: 1;
+        }
+
+        .sidebar.mini .nav-label {
+            max-width: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* ── Badges ── */
+        .nav-badge {
+            margin-left: auto;
+            font-size: .52rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: opacity var(--dur), max-width var(--dur);
+            overflow: hidden;
+            max-width: 60px;
+            opacity: 1;
+        }
+
+        .sidebar.mini .nav-badge {
+            opacity: 0;
+            max-width: 0;
+        }
+
+        .badge-blue {
+            background: var(--blue);
+            color: #fff;
+        }
+
+        .badge-green {
+            background: var(--green);
+            color: #fff;
+        }
+
+        /* ── Accordion chevron ── */
+        .acc-chevron {
+            margin-left: auto;
+            font-size: .6rem;
+            transition: transform var(--dur) var(--ease), opacity var(--dur);
+            flex-shrink: 0;
+        }
+
+        .nav-acc-trigger.open .acc-chevron {
+            transform: rotate(180deg);
+        }
+
+        .sidebar.mini .acc-chevron {
+            opacity: 0;
+        }
+
+        /* ── Accordion body (sub-items) ── */
+        .nav-acc-body {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height .28s var(--ease);
+        }
+
+        .nav-acc-body.open {
+            max-height: 400px;
+        }
+
+        .sidebar.mini .nav-acc-body:not(.open) {
+            max-height: 0 !important;
+        }
+
+        .nav-sub-item>a {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 6px 10px 6px 20px;
+            color: var(--muted);
+            text-decoration: none;
+            border-radius: 9px;
+            font-size: .78rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: background .18s, color .18s;
+        }
+
+        .nav-sub-item>a:hover,
+        .nav-sub-item.active>a {
+            background: rgba(255, 255, 255, .08);
+            color: #fff;
+        }
+
+        .nav-sub-item>a .nav-label {
+            font-size: .78rem;
+        }
+
+        /* ── Tooltip (mini mode only) ── */
+        .sidebar.mini .nav-item,
+        .sidebar.mini .nav-sub-item {
+            position: relative;
+        }
+
+        .sidebar.mini .nav-item>a::after,
+        .sidebar.mini .nav-item .nav-acc-trigger::after,
+        .sidebar.mini .nav-sub-item>a::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: calc(var(--sidebar-mini-w) + 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #0b1437;
+            color: #fff;
+            font-size: .72rem;
+            font-weight: 600;
+            padding: 5px 11px;
+            border-radius: 8px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+            z-index: 9999;
+        }
+
+        .sidebar.mini .nav-item>a:hover::after,
+        .sidebar.mini .nav-item .nav-acc-trigger:hover::after,
+        .sidebar.mini .nav-sub-item>a:hover::after {
+            opacity: 1;
+        }
+
+        /* ── Dataset Info Box in Sidebar ── */
+        .sidebar-dataset-info {
+            margin: 16px 12px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            transition: all var(--dur) var(--ease);
+        }
+
+        .sidebar-dataset-info:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .sdi-icon-wrap {
+            font-size: 1.1rem;
+            color: var(--purple);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 24px;
+            width: 24px;
+            flex-shrink: 0;
+            background: rgba(134, 140, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .sdi-details {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow: hidden;
+            transition: opacity var(--dur) var(--ease), max-width var(--dur) var(--ease), padding var(--dur) var(--ease);
+            max-width: 180px;
+            opacity: 1;
+        }
+
+        .sdi-title {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 2px;
+        }
+
+        .sdi-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .sdi-label {
+            color: var(--muted);
+            font-size: 0.62rem;
+            font-weight: 600;
+        }
+
+        .sdi-value {
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        /* Mini sidebar overrides */
+        .sidebar.mini .sidebar-dataset-info {
+            margin: 12px 8px;
+            padding: 12px 0;
+            justify-content: center;
+            background: transparent;
+            border-color: transparent;
+            cursor: pointer;
+        }
+
+        .sidebar.mini .sidebar-dataset-info .sdi-details {
+            max-width: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar.mini .sidebar-dataset-info .sdi-icon-wrap {
+            background: rgba(134, 140, 255, 0.15);
+            color: #868cff;
+        }
+
+        /* Tooltip in mini mode */
+        .sidebar.mini .sidebar-dataset-info {
+            position: relative;
+        }
+
+        .sidebar.mini .sidebar-dataset-info::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: calc(var(--sidebar-mini-w) + 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #0b1437;
+            color: #fff;
+            font-size: .72rem;
+            font-weight: 600;
+            padding: 5px 11px;
+            border-radius: 8px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s ease;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+            z-index: 9999;
+        }
+
+        .sidebar.mini .sidebar-dataset-info:hover::after {
+            opacity: 1;
+        }
+
+        /* ── Main wrapper ── */
+        .sidebar-profile {
+            margin: auto 10px 14px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .04);
+            position: relative;
+        }
+
+        .sp-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .sp-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #378add, #05cd99);
+            color: #fff;
+            font-size: .82rem;
+            font-weight: 800;
+        }
+
+        .sp-details {
+            min-width: 0;
+            transition: opacity var(--dur), max-width var(--dur);
+        }
+
+        .sp-username {
+            color: #fff;
+            font-size: .8rem;
+            font-weight: 700;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sp-role {
+            color: var(--muted);
+            font-size: .66rem;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sp-menu {
+            flex-shrink: 0;
+        }
+
+        .sp-menu-btn {
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .06);
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .sp-menu-btn:hover {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+        }
+
+        .sp-dropdown {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: calc(100% + 8px);
+            display: none;
+            padding: 8px;
+            background: #0b1437;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 10px;
+            box-shadow: 0 14px 36px rgba(0, 0, 0, .32);
+            z-index: 1000;
+        }
+
+        .sp-dropdown.open {
+            display: block;
+        }
+
+        .sp-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            color: #fff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
+        .sp-dropdown a:hover {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .sidebar.mini .sidebar-profile {
+            justify-content: center;
+            margin-left: 8px;
+            margin-right: 8px;
+        }
+
+        .sidebar.mini .sp-details,
+        .sidebar.mini .sp-menu {
+            display: none;
+        }
+
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: all var(--dur) var(--ease);
+            min-width: 0;
+        }
+    </style>
+</head>
+
+<body data-theme="light">
+
+    <div class="layout-wrapper">
+
+        <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+        <aside class="sidebar" id="sidebar">
+
+            <!-- Brand -->
+            <div class="sidebar-brand">
+
+                <div class="brand-logo">
+
+                    <img src="https://raw.githubusercontent.com/adindaadeliafutri6-gif/logo/main/logo%20itsb.png"
+                        alt="ITSB" class="logo-img" onerror="this.style.display='none';
+                              document.getElementById('logo-fallback').style.display='flex';">
+                    <div id="logo-fallback" class="brand-icon" style="display:none;">
+                        <i class="fas fa-chart-simple"></i>
+                    </div>
+                </div>
+                <div class="brand-text">
+                    <h2>DS Generator</h2>
+                    <p data-translate="subtitle">Descriptive Statistics</p>
+                </div>
+            </div>
+
+            <!-- Sidebar toggle button removed (hover-based auto expansion active) -->
+
+            <ul class="nav-menu" id="nav-menu">
+
+
+
+                <li class="nav-item {% if not filename %}active{% endif %}" id="menu-overview">
+                    <a href="{% if filename %}#{% endif %}"
+                        onclick="{% if filename %}switchTab('overview'); return false;{% endif %}" data-tip="Dashboard">
+                        <span class="nav-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-label">Dashboard</span>
+                    </a>
+                </li>
+
+                {% if filename %}
+                <li class="nav-item" id="menu-upload">
+                    <a href="{{ url_for('upload_file') }}" data-tip="Upload Data">
+                        <span class="nav-icon"><i class="fas fa-cloud-upload-alt"></i></span>
+                        <span class="nav-label">Upload Data</span>
+                    </a>
+                </li>
+
+
+
+
+                <li class="nav-item" id="menu-preview">
+
+                    <a href="#" onclick="switchTab('preview'); return false;" data-tip="Data Preview">
+                        <span class="nav-icon"><i class="fas fa-table"></i></span>
+                        <span class="nav-label">Data Preview</span>
+                    </a>
+                </li>
+                <li class="nav-item" id="menu-cleaning">
+                    <a href="#" onclick="switchTab('cleaning'); return false;" data-tip="Data Cleaning">
+                        <span class="nav-icon"><i class="fas fa-broom"></i></span>
+                        <span class="nav-label">Data Cleaning</span>
+                    </a>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-stats-acc">
+                    <button class="nav-acc-trigger" id="acc-stats-btn" onclick="toggleAcc('acc-stats')"
+                        data-tip="Statistics">
+                        <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                        <span class="nav-label">Statistics</span>
+                        <i class="fas fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="nav-acc-body" id="acc-stats">
+                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
+                            <li class="nav-sub-item" id="menu-numerical">
+                                <a href="#" onclick="switchTab('numerical'); return false;" data-tip="Numerical Stats">
+                                    <span class="nav-icon"><i class="fas fa-hashtag"></i></span>
+                                    <span class="nav-label">Numerical Stats</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-categorical">
+                                <a href="#" onclick="switchTab('categorical'); return false;"
+                                    data-tip="Categorical Stats">
+                                    <span class="nav-icon"><i class="fas fa-font"></i></span>
+                                    <span class="nav-label">Categorical Stats</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-advanced">
+                                <a href="#" onclick="switchTab('advanced'); return false;" data-tip="Advanced Stats">
+                                    <span class="nav-icon"><i class="fas fa-flask"></i></span>
+                                    <span class="nav-label">Advanced Stats</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-visualizations">
+                    <button class="nav-acc-trigger" id="acc-viz-btn" onclick="toggleAcc('acc-viz')"
+                        data-tip="Visualizations">
+                        <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                        <span class="nav-label">Visualizations</span>
+                        <i class="fas fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="nav-acc-body" id="acc-viz">
+                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
+                            <li class="nav-sub-item" id="menu-viz-num">
+                                <a href="#" onclick="openVizCategory('numerical'); return false;" data-tip="Numerical">
+                                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                                    <span class="nav-label">Numerical</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-viz-cat">
+                                <a href="#" onclick="openVizCategory('categorical'); return false;"
+                                    data-tip="Categorical">
+                                    <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                                    <span class="nav-label">Categorical</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-viz-biv">
+                                <a href="#" onclick="openVizCategory('bivariate'); return false;" data-tip="Bivariate">
+                                    <span class="nav-icon"><i class="fas fa-circle-dot"></i></span>
+                                    <span class="nav-label">Bivariate &amp; Multi</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-viz-catnum">
+                                <a href="#" onclick="openVizCategory('catnum'); return false;" data-tip="Cat vs Num">
+                                    <span class="nav-icon"><i class="fas fa-shuffle"></i></span>
+                                    <span class="nav-label">Cat vs Num</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-viz-compare">
+                                <a href="#" onclick="openVizCategory('compare'); return false;" data-tip="Comparison">
+                                    <span class="nav-icon"><i class="fas fa-scale-balanced"></i></span>
+                                    <span class="nav-label">Comparison</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-timeseries">
+                    <button class="nav-acc-trigger" id="acc-ts-btn" onclick="toggleAcc('acc-ts')"
+                        data-tip="Time Series">
+                        <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                        <span class="nav-label">Time Series</span>
+                        <span class="nav-badge badge-green">AUTO</span>
+                        <i class="fas fa-chevron-down acc-chevron" style="margin-left:4px;"></i>
+                    </button>
+                    <div class="nav-acc-body" id="acc-ts">
+                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
+                            <li class="nav-sub-item" id="menu-ts-overview">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('overview'),80); return false;"
+                                    data-tip="Overview Panel">
+                                    <span class="nav-icon"><i class="fas fa-border-all"></i></span>
+                                    <span class="nav-label">Overview Panel</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-line">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('line'),80); return false;"
+                                    data-tip="Line Chart">
+                                    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                                    <span class="nav-label">Line Chart</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-trend">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('trend'),80); return false;"
+                                    data-tip="Trend Line">
+                                    <span class="nav-icon"><i class="fas fa-arrow-trend-up"></i></span>
+                                    <span class="nav-label">Trend Line</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-ma">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('ma'),80); return false;"
+                                    data-tip="Moving Average">
+                                    <span class="nav-icon"><i class="fas fa-wave-square"></i></span>
+                                    <span class="nav-label">Moving Average</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-rolling">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('rolling'),80); return false;"
+                                    data-tip="Rolling Mean">
+                                    <span class="nav-icon"><i class="fas fa-redo"></i></span>
+                                    <span class="nav-label">Rolling Mean</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-insights">
+                    <a href="#" onclick="switchTab('insights'); return false;" data-tip="Smart Insights">
+                        <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
+                        <span class="nav-label">Smart Insights</span>
+                    </a>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-report">
+                    <a href="#" onclick="switchTab('report'); return false;" data-tip="High Report">
+                        <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                        <span class="nav-label">High Report</span>
+                        <span class="nav-badge badge-blue">NEW</span>
+                    </a>
+                </li>
+
+
+
+                <li class="nav-item" id="menu-reporting">
+                    <button class="nav-acc-trigger" id="acc-report-btn" onclick="toggleAcc('acc-report')"
+                        data-tip="Reporting System">
+                        <span class="nav-icon"><i class="fas fa-file-export"></i></span>
+                        <span class="nav-label">Reporting System</span>
+                        <i class="fas fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="nav-acc-body" id="acc-report">
+                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
+                            <li class="nav-sub-item" id="menu-report-pdf">
+                                <a href="{{ url_for('download_report_pdf', filename=filename) }}" target="_blank"
+                                    onclick="showDownloadToast('PDF Report')" data-tip="Download Report PDF">
+                                    <span class="nav-icon"><i class="fas fa-file-pdf" style="color:#ff3b30;"></i></span>
+                                    <span class="nav-label">Download Report PDF</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-report-html">
+                                <a href="{{ url_for('download_report_html', filename=filename) }}" target="_blank"
+                                    onclick="showDownloadToast('HTML Dashboard')" data-tip="Download HTML Dashboard">
+                                    <span class="nav-icon"><i class="fas fa-file-code"
+                                            style="color:#007aff;"></i></span>
+                                    <span class="nav-label">Download HTML Dashboard</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-export-excel">
+                                <a href="{{ url_for('export_excel', filename=filename) }}"
+                                    onclick="showDownloadToast('Excel Report')" data-tip="Export to Excel">
+                                    <span class="nav-icon"><i class="fas fa-file-excel"
+                                            style="color:#34c759;"></i></span>
+                                    <span class="nav-label">Export to Excel</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-export-csv">
+                                <a href="{{ url_for('export_csv', filename=filename) }}"
+                                    onclick="showDownloadToast('CSV Report')" data-tip="Export to CSV">
+                                    <span class="nav-icon"><i class="fas fa-file-csv" style="color:#ff9500;"></i></span>
+                                    <span class="nav-label">Export to CSV</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                {% if dataset_info %}
+                <!-- Dataset Info Box (clean text-only) -->
+                <div class="sidebar-dataset-info" data-tip="Dataset: {{ dataset_info.name }}">
+                    <div class="sdi-details">
+                        <div class="sdi-title" data-translate="sdi_title">Dataset Info</div>
+                        <div class="sdi-item">
+                            <span class="sdi-label" data-translate="sdi_filename">File:</span>
+                            <span class="sdi-value" title="{{ dataset_info.name }}">{{ dataset_info.name }}</span>
+                        </div>
+                        <div class="sdi-item">
+                            <span class="sdi-label" data-translate="sdi_filesize">Size:</span>
+                            <span class="sdi-value">{{ dataset_info.size }}</span>
+                        </div>
+                        <div class="sdi-item">
+                            <span class="sdi-label" data-translate="sdi_uploaded">Uploaded:</span>
+                            <span class="sdi-value">{{ dataset_info.time }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- User Profile Section (bottom) -->
+
+                <div class="sidebar-profile" data-tip="Account settings">
+                    <div class="sp-left">
+                        <div class="sp-avatar">
+                            <span>{{ current_user.name[:1]|upper if current_user else 'U' }}</span>
+                        </div>
+                        <div class="sp-details">
+                            <div class="sp-username">{{ current_user.name if current_user else 'User' }}</div>
+                            <div class="sp-role">{{ current_user.role if current_user else 'Data Analyst' }}</div>
+                        </div>
+                    </div>
+                    <div class="sp-menu">
+                        <button class="sp-menu-btn" type="button" aria-label="Account menu" data-logout-url="{{ url_for('logout') }}">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {% endif %}
+            </ul>
+        </aside>
+
+
+        <!-- ═══════════════════ MAIN AREA ═══════════════════ -->
+        <main class="main-wrapper">
+
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button type="button" class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="page-title">
+                        <h1 data-translate="title">Descriptive Statistics Generator</h1>
+                        <p data-translate="desc">Upload, analyze, visualize and get insights automatically</p>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <select id="lang-selector" class="lang-select">
+                        <option value="en">🌐 EN</option>
+                        <option value="id">🇮🇩 ID</option>
+                    </select>
+                    <div class="icon-btn" id="theme-toggle" title="Toggle Dark Mode">
+                        <i class="fas fa-moon" id="theme-icon"></i>
+                    </div>
+                    <div class="user-profile" id="team-profile-btn" title="Lihat Anggota Kelompok 2">
+                        <div class="avatar"><i class="fas fa-users"></i></div>
+                        <div class="user-info">
+                            <span class="name">Group 2</span>
+                            <span class="role" data-translate="admin_role">Data Science Team</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- CONTENT -->
+            <div class="content-container">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- ═══════════════════ MODAL TIM ═══════════════════ -->
+    <div id="team-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-users"></i> Project Members - Kelompok 2 ITSB</h2>
+                <span class="close-modal" id="close-modal">&times;</span>
+            </div>
+            <div class="team-grid">
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/caroldupinopereira-cmyk/carol/main/carol_1-removebg-preview.png"
+                        alt="Carol">
+                    <h4>Carol Dupino Pereira</h4>
+                    <p class="nim">NIM: 52250051</p>
+                    <p class="role-tag">Data Science</p>
+                    <div class="card-links">
+                        <a href="https://github.com/caroldupinopereira-cmyk" target="_blank"><i
+                                class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/adindaadeliafutri6-gif/refan/main/Foto_refan-removebg-preview.png"
+                        alt="Refantanur">
+                    <h4>Refantanur Husnul Haqib</h4>
+                    <p class="nim">NIM: 52250052</p>
+                    <p class="role-tag">Data Science</p>
+                    <div class="card-links">
+                        <a href="https://github.com/refantanjung23-wq" target="_blank"><i class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/cahayasemidang-max/foto/cfc8d91ef344fb1beba4eadb93e4be67168bc2b8/FotoCahaya.png"
+                        alt="Cahaya">
+                    <h4>Cahaya Medina Semidang</h4>
+                    <p class="nim">NIM: 52250053</p>
+                    <p class="role-tag">Data Science</p>
+                    <div class="card-links">
+                        <a href="https://github.com/cahayasemidang-max" target="_blank"><i
+                                class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/raihaniasyahputri/Foto_lulu/696dc3e134536210f870e9d5230b8fbeaad40e0d/IMG-20251129-WA0001.png"
+                        alt="Raihania">
+                    <h4>Raihania Syah Putri</h4>
+                    <p class="nim">NIM: 52250054</p>
+                    <p class="role-tag">Data Science</p>
+                    <div class="card-links">
+                        <a href="https://github.com/raihaniasyahputri" target="_blank"><i class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/cahayasemidang-max/foto/b7534990c32ff093c6cb2faefc6282f5f6079296/FotoCloise.png"
+                        alt="Cloise">
+                    <h4>Cloise Shafira</h4>
+                    <p class="nim">NIM: 52250044</p>
+                    <p class="role-tag">Data Science</p>
+                    <div class="card-links">
+                        <a href="https://github.com/xcoliyyyzz1/cloi" target="_blank"><i class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+                <div class="id-card">
+                    <img src="https://raw.githubusercontent.com/caroldupinopereira-cmyk/adinda/main/adinda_baru-removebg-preview.png"
+                        alt="Adinda">
+                    <h4>Adinda Adelia Futri</h4>
+                    <p class="nim">NIM: 52250055</p>
+                    <p class="role-tag">Student Admin</p>
+                    <div class="card-links">
+                        <a href="https://github.com/adindaadeliafutri6-gif" target="_blank"><i
+                                class="fab fa-github"></i></a>
+                        <span class="link-disabled" title="LinkedIn belum tersedia"><i class="fab fa-linkedin-in"></i></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebarProfileMenu.js') }}"></script>
+
+    <script>
+
+        function showDownloadToast(reportType) {
+            if (typeof showToast === 'function') {
+                showToast("Generating " + reportType + "... Please wait.", "info");
+                setTimeout(function () {
+                    showToast("Successfully generated and downloaded " + reportType + "!", "success");
+                }, 2500);
+            } else {
+                console.log("Generating report: " + reportType);
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════
+           ACCORDION NAV
+        ═══════════════════════════════════════════════════ */
+        function toggleAcc(accId) {
+            var body = document.getElementById(accId);
+            var btn = document.getElementById(accId.replace('acc-', 'acc-') + '-btn');
+            if (!body) return;
+
+            var isOpen = body.classList.contains('open');
+
+            // Close all others first
+            document.querySelectorAll('.nav-acc-body.open').forEach(function (el) {
+                el.classList.remove('open');
+            });
+            document.querySelectorAll('.nav-acc-trigger.open').forEach(function (el) {
+                el.classList.remove('open');
+            });
+
+            // Toggle clicked one
+            if (!isOpen) {
+                body.classList.add('open');
+                // Find and mark the trigger button
+                var trigger = body.previousElementSibling;
+                if (trigger) trigger.classList.add('open');
+            }
+        }
+
+        /* Auto-open accordion that contains active item */
+        document.addEventListener('DOMContentLoaded', function () {
+            var activeSubItem = document.querySelector('.nav-sub-item.active');
+            if (activeSubItem) {
+                var body = activeSubItem.closest('.nav-acc-body');
+                if (body) {
+                    body.classList.add('open');
+                    var trigger = body.previousElementSibling;
+                    if (trigger) trigger.classList.add('open');
+                }
+            }
+        });
+
+        /* ═══════════════════════════════════════════════════
+           SIDEBAR TOGGLE (mini/full)
+        ═══════════════════════════════════════════════════ */
+        (function () {
+            var sidebar = document.getElementById('sidebar');
+            var MINI_KEY = 'ds_sidebar_mini';
+
+            // Set default state to collapsed on desktop
+            if (sidebar && window.innerWidth > 768) {
+                sidebar.classList.add('mini');
+            }
+
+            // Hover-based auto expand/collapse
+            if (sidebar) {
+                sidebar.addEventListener('mouseenter', function () {
+                    if (window.innerWidth <= 768) return;
+                    sidebar.classList.remove('mini');
+                    _triggerResize();
+                });
+
+                sidebar.addEventListener('mouseleave', function () {
+                    if (window.innerWidth <= 768) return;
+                    sidebar.classList.add('mini');
+                    _triggerResize();
+                });
+            }
+
+            function _triggerResize() {
+                setTimeout(function () {
+                    if (typeof Plotly === 'undefined') return;
+                    document.querySelectorAll('[id^="plot-"],[id^="ov-"],[id^="ts-"],[id="viz-master-plot"]')
+                        .forEach(function (el) {
+                            if (el._fullLayout) Plotly.Plots.resize(el);
+                        });
+                }, 300);
+            }
+
+            /* Mobile sidebar */
+            var mobileBtn = document.getElementById('mobile-menu-btn');
+            if (mobileBtn && sidebar) {
+                mobileBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('mobile-open');
+                });
+                document.addEventListener('click', function (e) {
+                    if (!sidebar.classList.contains('mobile-open')) return;
+                    if (!sidebar.contains(e.target) && e.target !== mobileBtn && !mobileBtn.contains(e.target)) {
+                        sidebar.classList.remove('mobile-open');
+                    }
+                });
+            }
+        })();
+    </script>
+
+    <!-- Flash via SweetAlert2 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            {% for category, message in messages %}
+            (function() {
+                var cat  = {{ category | tojson }};
+                var msg  = {{ message  | tojson }};
+                var icon = (cat === 'error') ? 'error' : (cat === 'info' ? 'info' : 'success');
+                var title= (cat === 'error') ? 'Oops...' : (cat === 'info' ? '📂 Dataset Found' : '✅ Success!');
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    text: msg,
+                    confirmButtonColor: '#4318ff',
+                    timer: 4000,
+                    timerProgressBar: true,
+                    showConfirmButton: (cat === 'error')
+                });
+            })();
+            {% endfor %}
+        });
+    </script>
+    {% endif %}
+    {% endwith %}
+
+</body>
+
+</html>
+

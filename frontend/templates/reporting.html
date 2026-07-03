@@ -1,0 +1,1352 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+:root {
+  --rpt-card-radius: 14px;
+  --rpt-transition: .24s cubic-bezier(.4,0,.2,1);
+}
+
+.rpt-hero {
+  margin-bottom: 32px;
+}
+.rpt-hero h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rpt-hero p {
+  color: var(--muted);
+  font-size: .9rem;
+  margin-top: 6px;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.rpt-meta-bar {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 28px;
+}
+.rpt-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rpt-meta-label {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+}
+.rpt-meta-value {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rpt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.rpt-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--rpt-card-radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all var(--rpt-transition);
+  position: relative;
+  overflow: visible;
+}
+.rpt-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--rpt-card-radius) var(--rpt-card-radius) 0 0;
+}
+.rpt-card:hover {
+  border-color: transparent;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,.08);
+}
+.dark-theme .rpt-card:hover {
+  box-shadow: 0 12px 32px rgba(0,0,0,.35);
+}
+
+.rpt-card.pdf::before   { background: #ff3b30; }
+
+.rpt-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.rpt-card.pdf .rpt-card-icon   { background: rgba(255,59,48,.12); color: #ff3b30; }
+
+.rpt-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rpt-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.rpt-card-desc {
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.rpt-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.rpt-card-btn {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: .82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all .18s;
+  text-decoration: none;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.rpt-card.pdf .rpt-card-btn   { background: #ff3b30; color: #fff; }
+.rpt-card.pdf .rpt-card-btn:hover   { background: #d62820; }
+
+@media (max-width: 400px) {
+  .rpt-card-btn span { display: none; }
+  .rpt-card-btn { padding: 10px 8px; }
+}
+
+.rpt-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+.rpt-empty i {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: .4;
+}
+.rpt-empty h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.rpt-empty p {
+  font-size: .85rem;
+  max-width: 420px;
+  margin: 0 auto 20px;
+  line-height: 1.6;
+}
+.rpt-empty .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 10px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: .88rem;
+  text-decoration: none;
+  font-family: inherit;
+  transition: .18s;
+}
+.rpt-empty .btn-primary:hover {
+  background: #3700e0;
+  transform: translateY(-1px);
+}
+
+/* ── Preview Modal ── */
+@keyframes rptModalFadeIn {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.rpt-preview-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+}
+.rpt-preview-modal.active { display: flex; }
+.rpt-preview-box {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 92vw;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.4);
+  animation: rptModalFadeIn .28s ease-out;
+}
+.rpt-preview-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.rpt-preview-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rpt-preview-actions { display: flex; align-items: center; gap: 10px; }
+.rpt-preview-body {
+  flex: 1;
+  position: relative;
+  background: #f0f4f8;
+  overflow: hidden;
+}
+.rpt-preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.rpt-preview-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--card-bg);
+  z-index: 5;
+}
+.rpt-preview-spinner span {
+  font-weight: 700;
+  color: var(--text);
+  font-size: .9rem;
+}
+.btn-close-modal {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background .15s, color .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-close-modal:hover { background: var(--bg); color: var(--text); }
+</style>
+
+<div class="rpt-hero">
+  <h2><i class="fas fa-file-export text-blue"></i> <span data-i18n="nav_reporting_sys">Report</span></h2>
+  <p data-i18n="rpt_subtitle">Generate and download comprehensive PDF reports for your dataset — available for both raw and cleaned data.</p>
+</div>
+
+{% if filename %}
+  {% set fname = filename %}
+
+  <div class="rpt-meta-bar">
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="sdi_filename">Dataset</span>
+      <span class="rpt-meta-value">{{ dataset_info.name }}</span>
+    </div>
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="sdi_filesize">Size</span>
+      <span class="rpt-meta-value">{{ dataset_info.size }}</span>
+    </div>
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="sdi_uploaded">Uploaded</span>
+      <span class="rpt-meta-value">{{ dataset_info.time }}</span>
+    </div>
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="rpt_rows">Rows</span>
+      <span class="rpt-meta-value">{{ dataset_info.rows }}</span>
+    </div>
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="rpt_cols">Columns</span>
+      <span class="rpt-meta-value">{{ dataset_info.cols }}</span>
+    </div>
+    <div class="rpt-meta-item">
+      <span class="rpt-meta-label" data-i18n="rpt_data_source">Data Source</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s"
+               id="toggleRawLabel">
+          <input type="radio" name="data_source" value="raw"
+                 style="accent-color:#f59e0b;width:13px;height:13px"
+                 {% if not is_cleaned %}checked{% endif %}
+                 onchange="switchDataSource('raw')">
+          <span style="color:#92400e" data-i18n="rpt_raw">Raw</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s"
+               id="toggleCleanedLabel">
+          <input type="radio" name="data_source" value="cleaned"
+                 style="accent-color:#059669;width:13px;height:13px"
+                 {% if is_cleaned %}checked{% endif %}
+                 onchange="switchDataSource('cleaned')">
+          <span style="color:#065f46" data-i18n="rpt_cleaned">Cleaned</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="rpt-grid">
+    <!-- Laporan PDF — Auto-detect Raw / Cleaned -->
+    <div class="rpt-card pdf">
+      <div class="rpt-card-icon"><i class="fas fa-file-pdf"></i></div>
+      <div class="rpt-card-body">
+        <span class="rpt-card-title" data-i18n="rpt_pdf_title">PDF Report</span>
+        <span class="rpt-card-desc" id="pdfCardDesc" data-i18n="rpt_clean_desc">
+          {% if is_cleaned %}
+            Data sudah dibersihkan. Laporan ini menggunakan data <b>cleaned</b> (hasil pembersihan terakhir di dashboard).
+          {% else %}
+            Data masih mentah. Laporan ini menggunakan data <b>raw</b> (orisinil sebelum cleaning). Bersihkan data di dashboard untuk laporan cleaned.
+          {% endif %}
+        </span>
+        <span class="rpt-card-badge" id="pdfCardBadge"
+              style="{% if is_cleaned %}background:#d1fae5;color:#065f46;border-color:#6ee7b7{% else %}background:#fef3c7;color:#92400e;border-color:#fcd34d{% endif %}">
+          <i class="fas {% if is_cleaned %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}" id="pdfBadgeIcon"></i>
+          <span id="pdfBadgeText">{% if is_cleaned %}Cleaned{% else %}Raw{% endif %}</span>
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button"
+          class="rpt-card-btn btn-preview-trigger"
+          data-type="pdf"
+          data-filename="{{ fname }}"
+          style="flex:1; background:#6b7280; border:none; cursor:pointer;">
+          <i class="fas fa-eye"></i> <span data-i18n="rpt_preview">Preview</span>
+        </button>
+        <button type="button" class="rpt-card-btn" id="btnOpenCustom"
+          style="flex:1; border:none; cursor:pointer;">
+          <i class="fas fa-magic"></i> <span data-i18n="rpt_custom">Custom</span>
+        </button>
+        <a href="{{ url_for('download_report_pdf', filename=fname, status='cleaned' if is_cleaned else 'raw') }}"
+           onclick="showDownloadToast('PDF Report')" class="rpt-card-btn"
+           style="flex:1;">
+          <i class="fas fa-download"></i> <span data-i18n="rpt_download">Download</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Laporan HTML — Interactive Report -->
+    <div class="rpt-card" style="border-top: 4px solid #3b82f6;">
+      <div class="rpt-card-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;"><i class="fas fa-file-code"></i></div>
+      <div class="rpt-card-body">
+        <span class="rpt-card-title" data-i18n="rpt_html_title">HTML Report</span>
+        <span class="rpt-card-desc" data-i18n="rpt_html_desc_detail">
+          Laporan interaktif berbasis web — buka di browser, responsive, bisa zoom chart, collapsible sections, dan print-friendly.
+        </span>
+        <span class="rpt-card-badge" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd">
+          <i class="fas fa-globe"></i> Interactive
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-export-preview" data-type="html" data-filename="{{ fname }}"
+          style="flex:1; padding:10px 12px; border-radius:10px; border:none; font-size:.82rem; font-weight:700;
+                 font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+                 background:#6b7280; color:#fff; transition:all .18s;">
+          <i class="fas fa-eye"></i> <span data-i18n="rpt_preview">Preview</span>
+        </button>
+        <a href="{{ url_for('download_report_html', filename=fname) }}"
+           onclick="showDownloadToast('Dashboard HTML')" class="rpt-card-btn"
+           style="flex:1; background:#3b82f6; color:white; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fas fa-download"></i> <span data-i18n="rpt_download">Download</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Export Excel -->
+    <div class="rpt-card" style="border-top: 4px solid #217346;">
+      <div class="rpt-card-icon" style="background:rgba(33,115,70,.12);color:#217346;"><i class="fas fa-file-excel"></i></div>
+      <div class="rpt-card-body">
+        <span class="rpt-card-title" data-i18n="rpt_excel_title">Excel Export</span>
+        <span class="rpt-card-desc" data-i18n="rpt_excel_desc_detail">
+          Download dataset sebagai file Excel (.xlsx) dengan autofilter dan auto-width kolom.
+        </span>
+        <span class="rpt-card-badge" style="background:#d1fae5;color:#065f46;border-color:#6ee7b7">
+          <i class="fas fa-database"></i> {% if is_cleaned %}<span data-i18n="rpt_cleaned">Cleaned</span>{% else %}<span data-i18n="rpt_raw">Raw</span>{% endif %} Data
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-export-preview" data-type="excel" data-filename="{{ fname }}"
+          style="flex:1; padding:10px 12px; border-radius:10px; border:none; font-size:.82rem; font-weight:700;
+                 font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+                 background:#6b7280; color:#fff; transition:all .18s;">
+          <i class="fas fa-eye"></i> <span data-i18n="rpt_preview">Preview</span>
+        </button>
+        <button type="button" class="rpt-card-btn btn-open-export-custom" data-type="excel" data-filename="{{ fname }}"
+          style="flex:1; background:#1a6b3a; border:none; cursor:pointer;">
+          <i class="fas fa-magic"></i> <span data-i18n="rpt_custom">Custom</span>
+        </button>
+        <a href="{{ url_for('export_excel', filename=fname) }}"
+           onclick="showDownloadToast('Excel Export')" class="rpt-card-btn"
+           style="flex:1; background:#217346; color:white; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fas fa-download"></i> <span data-i18n="rpt_download">Download</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Export CSV -->
+    <div class="rpt-card" style="border-top: 4px solid #3b82f6;">
+      <div class="rpt-card-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;"><i class="fas fa-file-csv"></i></div>
+      <div class="rpt-card-body">
+        <span class="rpt-card-title" data-i18n="rpt_csv_title">CSV Export</span>
+        <span class="rpt-card-desc" data-i18n="rpt_csv_desc_detail">
+          Download dataset sebagai file CSV — format universal yang kompatibel dengan semua tools analisis data.
+        </span>
+        <span class="rpt-card-badge" style="background:#dbeafe;color:#1e40af;border-color:#93c5fd">
+          <i class="fas fa-database"></i> {% if is_cleaned %}<span data-i18n="rpt_cleaned">Cleaned</span>{% else %}<span data-i18n="rpt_raw">Raw</span>{% endif %} Data
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-export-preview" data-type="csv" data-filename="{{ fname }}"
+          style="flex:1; padding:10px 12px; border-radius:10px; border:none; font-size:.82rem; font-weight:700;
+                 font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+                 background:#6b7280; color:#fff; transition:all .18s;">
+          <i class="fas fa-eye"></i> <span data-i18n="rpt_preview">Preview</span>
+        </button>
+        <button type="button" class="rpt-card-btn btn-open-export-custom" data-type="csv" data-filename="{{ fname }}"
+          style="flex:1; background:#2563eb; border:none; cursor:pointer;">
+          <i class="fas fa-magic"></i> <span data-i18n="rpt_custom">Custom</span>
+        </button>
+        <a href="{{ url_for('export_csv', filename=fname) }}"
+           onclick="showDownloadToast('CSV Export')" class="rpt-card-btn"
+           style="flex:1; background:#3b82f6; color:white; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fas fa-download"></i> <span data-i18n="rpt_download">Download</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Export JSON -->
+    <div class="rpt-card" style="border-top: 4px solid #f59e0b;">
+      <div class="rpt-card-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;"><i class="fas fa-file-code"></i></div>
+      <div class="rpt-card-body">
+        <span class="rpt-card-title" data-i18n="rpt_json_title">JSON Export</span>
+        <span class="rpt-card-desc" data-i18n="rpt_json_desc_detail">
+          Download dataset sebagai file JSON — ideal untuk integrasi API dan web applications.
+        </span>
+        <span class="rpt-card-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d">
+          <i class="fas fa-database"></i> {% if is_cleaned %}<span data-i18n="rpt_cleaned">Cleaned</span>{% else %}<span data-i18n="rpt_raw">Raw</span>{% endif %} Data
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-export-preview" data-type="json" data-filename="{{ fname }}"
+          style="flex:1; padding:10px 12px; border-radius:10px; border:none; font-size:.82rem; font-weight:700;
+                 font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+                 background:#6b7280; color:#fff; transition:all .18s;">
+          <i class="fas fa-eye"></i> <span data-i18n="rpt_preview">Preview</span>
+        </button>
+        <button type="button" class="rpt-card-btn btn-open-export-custom" data-type="json" data-filename="{{ fname }}"
+          style="flex:1; background:#d97706; border:none; cursor:pointer;">
+          <i class="fas fa-magic"></i> <span data-i18n="rpt_custom">Custom</span>
+        </button>
+        <a href="{{ url_for('export_json', filename=fname) }}"
+           onclick="showDownloadToast('JSON Export')" class="rpt-card-btn"
+           style="flex:1; background:#f59e0b; color:white; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <i class="fas fa-download"></i> <span data-i18n="rpt_download">Download</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Info Section -->
+  <div style="margin-top:32px; padding:24px; background:var(--card-bg); border:1px solid var(--border);
+              border-radius:14px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:36px; height:36px; border-radius:10px; background:rgba(59,130,246,.1);
+                  display:flex; align-items:center; justify-content:center;">
+        <i class="fas fa-info-circle" style="color:#3b82f6; font-size:1rem;"></i>
+      </div>
+      <h3 style="font-size:1rem; font-weight:700; color:var(--text); margin:0;" data-i18n="rpt_about_title">Tentang Report & Export</h3>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px;">
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#ff3b30; margin-top:6px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:.82rem; font-weight:700; color:var(--text); margin:0 0 2px;">PDF Report</p>
+          <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_about_pdf">Laporan lengkap berformat PDF dengan statistik deskriptif, visualisasi, insight, dan rekomendasi. Cocok untuk presentasi dan dokumentasi resmi.</p>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#3b82f6; margin-top:6px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:.82rem; font-weight:700; color:var(--text); margin:0 0 2px;">HTML Report</p>
+          <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_about_html">Laporan interaktif berbasis web — bisa dibuka di browser, responsive, collapsible sections, search, dan print-friendly.</p>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#217346; margin-top:6px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:.82rem; font-weight:700; color:var(--text); margin:0 0 2px;">Export Excel</p>
+          <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_about_excel">Download data sebagai file .xlsx dengan autofilter dan auto-width kolom. Siap dibuka di Microsoft Excel atau Google Sheets.</p>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#3b82f6; margin-top:6px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:.82rem; font-weight:700; color:var(--text); margin:0 0 2px;">Export CSV</p>
+          <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_about_csv">Format universal yang kompatibel dengan semua tools analisis data seperti Python, R, SPSS, dan lainnya.</p>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#f59e0b; margin-top:6px; flex-shrink:0;"></div>
+        <div>
+          <p style="font-size:.82rem; font-weight:700; color:var(--text); margin:0 0 2px;">Export JSON</p>
+          <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_about_json">Format data untuk integrasi API dan web applications. Mendukung orientasi records, columns, atau split.</p>
+        </div>
+      </div>
+    </div>
+    <div style="padding-top:12px; border-top:1px solid var(--border); display:flex; align-items:center; gap:8px;">
+      <i class="fas fa-lightbulb" style="color:#f59e0b; font-size:.85rem;"></i>
+      <p style="font-size:.78rem; color:var(--muted); margin:0; line-height:1.5;" data-i18n="rpt_tips">
+        <b style="color:var(--text);">Tips:</b> Gunakan tombol <b>Preview</b> untuk melihat data sebelum download. Status <b>Raw/Cleaned</b> akan mengikuti data source yang dipilih di atas.
+      </p>
+    </div>
+  </div>
+
+  <script>
+  window.__pdfFilename = '{{ fname }}';
+  window.__pdfStatus   = {{ is_cleaned | tojson }} ? 'cleaned' : 'raw';
+  window.__pdfStatusLabel = {{ is_cleaned | tojson }} ? (typeof I18N !== 'undefined' ? I18N.t('rpt_data_bersih') : 'Data Bersih') : (typeof I18N !== 'undefined' ? I18N.t('rpt_data_mentah') : 'Data Mentah');
+  </script>
+  <div id="generalPreviewModal" class="rpt-preview-modal">
+    <div class="rpt-preview-box">
+      <div class="rpt-preview-header">
+        <h4><i id="previewModalIcon" class="fas fa-eye"></i> <span id="previewModalTitleText" data-i18n="rpt_pratinjau">Pratinjau</span></h4>
+        <div class="rpt-preview-actions">
+          <a id="btnPreviewDownload"
+             href="#"
+             style="padding:8px 16px; font-weight:700; font-size:.8rem; border-radius:8px;
+                    background:#6b7280; color:#fff; text-decoration:none;
+                    display:flex; align-items:center; gap:6px;">
+            <i class="fas fa-download"></i> <span id="previewModalDownloadText" data-i18n="rpt_download">Unduh</span>
+          </a>
+          <button class="btn-close-modal" id="btnPreviewClose" data-i18n-title="ps_cancel" title="Tutup">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+      <div class="rpt-preview-body">
+        <div id="previewSpinner" class="rpt-preview-spinner">
+          <i class="fas fa-circle-notch fa-spin" style="font-size:2.5rem; color:#4318ff;"></i>
+          <span data-i18n="rpt_menyusun">Menyusun pratinjau...</span>
+        </div>
+        <iframe id="previewIframe" class="rpt-preview-iframe" style="display:none;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Preview Modal -->
+  <div id="exportPreviewModal" class="rpt-preview-modal">
+    <div class="rpt-preview-box">
+      <div class="rpt-preview-header">
+        <h4><i id="exportPreviewIcon" class="fas fa-eye"></i> <span id="exportPreviewTitle" data-i18n="rpt_pratinjau">Pratinjau Export</span></h4>
+        <div class="rpt-preview-actions">
+          <button class="btn-close-modal" id="btnExportPreviewClose" data-i18n-title="ps_cancel" title="Tutup">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+      <div class="rpt-preview-body">
+        <div id="exportPreviewSpinner" class="rpt-preview-spinner">
+          <i class="fas fa-circle-notch fa-spin" style="font-size:2.5rem; color:#4318ff;"></i>
+          <span data-i18n="rpt_menyusun">Memuat pratinjau...</span>
+        </div>
+        <iframe id="exportPreviewIframe" class="rpt-preview-iframe" style="display:none;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('generalPreviewModal');
+    var iframe = document.getElementById('previewIframe');
+    var spin = document.getElementById('previewSpinner');
+    var close = document.getElementById('btnPreviewClose');
+    var triggers = document.querySelectorAll('.btn-preview-trigger');
+
+    var titleText = document.getElementById('previewModalTitleText');
+    var titleIcon = document.getElementById('previewModalIcon');
+    var downloadBtn = document.getElementById('btnPreviewDownload');
+    var downloadText = document.getElementById('previewModalDownloadText');
+
+    var currentStatus = window.__pdfStatus;
+    var statusLabel = window.__pdfStatusLabel;
+
+    triggers.forEach(function (trigger) {
+      trigger.addEventListener('click', function () {
+        var filename = this.dataset.filename;
+
+        var langT = typeof I18N !== 'undefined' ? I18N.t : function(k) { return k; };
+        titleText.textContent = langT('rpt_preview_pdf') + ' (' + statusLabel + ')';
+        titleIcon.className = 'fas fa-file-pdf';
+        titleIcon.style.color = '#ff3b30';
+
+        downloadText.textContent = langT('rpt_unduh_pdf');
+        downloadBtn.style.backgroundColor = '#ff3b30';
+        downloadBtn.href = '/dashboard/' + encodeURIComponent(filename) + '/report/pdf?status=' + currentStatus;
+        downloadBtn.onclick = function() { showDownloadToast('PDF Report'); };
+
+        modal.classList.add('active');
+        spin.style.display = 'flex';
+        iframe.style.display = 'none';
+        iframe.src = '';
+
+        iframe.onload = function () {
+          spin.style.display = 'none';
+          iframe.style.display = 'block';
+        };
+
+        iframe.src = '/report/pdf-preview/' + encodeURIComponent(filename) + '?status=' + currentStatus + '&t=' + Date.now();
+      });
+    });
+
+    if (close && modal) {
+      close.addEventListener('click', function () {
+        modal.classList.remove('active');
+        iframe.src = '';
+      });
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) close.click();
+      });
+    }
+
+    var btnCustom = document.getElementById('btnOpenCustom');
+    if (btnCustom) {
+      btnCustom.addEventListener('click', function() {
+        document.getElementById('pdfCustomModal').style.display = 'flex';
+      });
+    }
+
+    // Export Preview Handlers
+    var exportModal = document.getElementById('exportPreviewModal');
+    var exportIframe = document.getElementById('exportPreviewIframe');
+    var exportSpin = document.getElementById('exportPreviewSpinner');
+    var exportClose = document.getElementById('btnExportPreviewClose');
+    var exportTitle = document.getElementById('exportPreviewTitle');
+    var exportIcon = document.getElementById('exportPreviewIcon');
+    var exportTriggers = document.querySelectorAll('.btn-export-preview');
+
+    var previewUrls = {
+      excel: '/report/excel-preview/',
+      csv: '/report/csv-preview/',
+      json: '/report/json-preview/',
+      html: '/report/html-preview/'
+    };
+    var previewColors = {
+      excel: '#217346',
+      csv: '#3b82f6',
+      json: '#f59e0b',
+      html: '#3b82f6'
+    };
+    var langT2 = typeof I18N !== 'undefined' ? I18N.t : function(k) { return k; };
+    var previewLabels = {
+      excel: langT2('rpt_preview_excel'),
+      csv: langT2('rpt_preview_csv'),
+      json: langT2('rpt_preview_json'),
+      html: langT2('rpt_preview_html')
+    };
+
+    exportTriggers.forEach(function(trigger) {
+      trigger.addEventListener('click', function() {
+        var type = this.dataset.type;
+        var filename = this.dataset.filename;
+        var url = previewUrls[type] + encodeURIComponent(filename) + '?t=' + Date.now();
+
+        exportTitle.textContent = previewLabels[type];
+        exportIcon.className = 'fas fa-eye';
+        exportIcon.style.color = previewColors[type];
+
+        exportModal.classList.add('active');
+        exportSpin.style.display = 'flex';
+        exportIframe.style.display = 'none';
+        exportIframe.src = '';
+
+        exportIframe.onload = function() {
+          exportSpin.style.display = 'none';
+          exportIframe.style.display = 'block';
+        };
+
+        exportIframe.src = url;
+      });
+    });
+
+    if (exportClose && exportModal) {
+      exportClose.addEventListener('click', function() {
+        exportModal.classList.remove('active');
+        exportIframe.src = '';
+      });
+      exportModal.addEventListener('click', function(e) {
+        if (e.target === exportModal) exportClose.click();
+      });
+    }
+  });
+  </script>
+
+
+
+<!-- ═══ MODAL CUSTOM PDF ═══ -->
+<div id="pdfCustomModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+     z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card-bg);border-radius:20px;padding:32px;
+       max-width:620px;width:100%;max-height:90vh;overflow-y:auto;
+       border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h3 style="font-weight:800;font-size:1.1rem" data-i18n="rpt_custom_title">Custom PDF Report</h3>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px" data-i18n="rpt_custom_desc">Pilih konten yang ingin disertakan</p>
+      </div>
+      <button onclick="closePdfModal()" style="background:none;border:none;
+              font-size:20px;cursor:pointer;color:var(--muted)">&#10005;</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase" data-i18n="rpt_title_label">
+          Judul Laporan (Opsional)
+        </label>
+        <input id="rptTitle" type="text" data-i18n-placeholder="rpt_title_ph" placeholder="Laporan Analisis Data Deskriptif"
+               style="width:100%;padding:9px 12px;border:1px solid var(--border);
+                      border-radius:8px;background:var(--bg);color:var(--text);
+                      font-size:13px;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase" data-i18n="rpt_analyst_label">
+          Nama Analis (Opsional)
+        </label>
+        <input id="rptAnalyst" type="text" data-i18n-placeholder="rpt_analyst_ph" placeholder="Kelompok 2 ITSB"
+               style="width:100%;padding:9px 12px;border:1px solid var(--border);
+                      border-radius:8px;background:var(--bg);color:var(--text);
+                      font-size:13px;margin-top:4px">
+      </div>
+    </div>
+
+    <p style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+              margin-bottom:10px" data-i18n="rpt_select_sections">Pilih Section Laporan</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      {% for val, label in [
+        ('pendahuluan','Pendahuluan & Latar Belakang'),
+        ('dataset','Deskripsi Dataset'),
+        ('kualitas','Kualitas Data'),
+        ('statistik_num','Statistik Numerik'),
+        ('statistik_cat','Statistik Kategorikal'),
+        ('visualisasi','Visualisasi'),
+        ('time_series','Analisis Deret Waktu'),
+        ('cleaning','Proses Pembersihan Data'),
+        ('insight','Wawasan Otomatis'),
+        ('rekomendasi','Rekomendasi'),
+        ('penutup','Penutup & Tim'),
+      ] %}
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+             border:1px solid var(--border);border-radius:8px;cursor:pointer;
+             font-size:12px;font-weight:600;background:var(--bg)">
+        <input type="checkbox" name="pdf_section" value="{{ val }}" checked
+               style="accent-color:#2563eb;width:14px;height:14px">
+        {{ label }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div id="chartOptions" style="display:none;margin-bottom:16px">
+      <p style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                margin-bottom:8px;padding-left:4px" data-i18n="rpt_select_charts">Pilih Chart Visualisasi</p>
+
+      {% if num_cols %}
+      <p style="font-size:10px;font-weight:700;color:var(--blue);margin:8px 0 4px;padding-left:4px">
+        <i class="fas fa-chart-bar" style="font-size:10px"></i> Numerik ({{ num_cols|length }} kolom)
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        {% for col in num_cols %}
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="histogram_{{ col }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-chart-bar" style="font-size:10px;color:var(--muted)"></i> Histogram — {{ col }}
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="boxplot_{{ col }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-box" style="font-size:10px;color:var(--muted)"></i> Boxplot — {{ col }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if cat_cols %}
+      <p style="font-size:10px;font-weight:700;color:var(--green,#059669);margin:8px 0 4px;padding-left:4px">
+        <i class="fas fa-chart-column" style="font-size:10px"></i> Kategorikal ({{ cat_cols|length }} kolom)
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        {% for col in cat_cols %}
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="bar_{{ col }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-chart-column" style="font-size:10px;color:var(--muted)"></i> Bar — {{ col }}
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="pie_{{ col }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-chart-pie" style="font-size:10px;color:var(--muted)"></i> Pie — {{ col }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if num_cols|length >= 2 %}
+      <p style="font-size:10px;font-weight:700;color:#8b5cf6;margin:8px 0 4px;padding-left:4px">
+        <i class="fas fa-braille" style="font-size:10px"></i> Bivariate / Multivariate
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="heatmap_all" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-fire" style="font-size:10px;color:var(--muted)"></i> Heatmap Korelasi
+        </label>
+        {% for i in range([num_cols|length, 5]|min) %}
+        {% for j in range(i+1, [num_cols|length, 5]|min) %}
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="scatter_{{ num_cols[i] }}_vs_{{ num_cols[j] }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-braille" style="font-size:10px;color:var(--muted)"></i> {{ num_cols[i] }} vs {{ num_cols[j] }}
+        </label>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if num_cols and cat_cols %}
+      <p style="font-size:10px;font-weight:700;color:#dc2626;margin:8px 0 4px;padding-left:4px">
+        <i class="fas fa-layer-group" style="font-size:10px"></i> Category vs Numeric
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        {% for cat in cat_cols[:4] %}
+        {% for num in num_cols[:4] %}
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_chart" value="box_{{ num }}_by_{{ cat }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas fa-layer-group" style="font-size:10px;color:var(--muted)"></i> {{ num }} by {{ cat }}
+        </label>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" onclick="selectAllCharts(true)"
+                style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+                       background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--muted)" data-i18n="rpt_select_all">
+          Select All
+        </button>
+        <button type="button" onclick="selectAllCharts(false)"
+                style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+                       background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--muted)" data-i18n="rpt_deselect_all">
+          Deselect All
+        </button>
+      </div>
+    </div>
+
+    <div id="tsChartOptions" style="display:none;margin-bottom:16px">
+      <p style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                margin-bottom:8px;padding-left:4px" data-i18n="rpt_select_charts">Pilih Chart Time Series</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        {% for val, icon, label in [
+          ('ts_line','fa-chart-line','Line Chart'),
+          ('ts_trend','fa-chart-line','Trend (OLS)'),
+          ('ts_ma','fa-wave-square','Moving Average'),
+          ('ts_rolling','fa-chart-area','Rolling Mean'),
+          ('ts_overview','fa-th-large','Overview 4-Panel'),
+        ] %}
+        <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;
+               border:1px solid var(--border);border-radius:6px;cursor:pointer;
+               font-size:11px;font-weight:600;background:var(--bg)">
+          <input type="checkbox" name="pdf_ts_chart" value="{{ val }}" checked
+                 style="accent-color:#2563eb;width:12px;height:12px">
+          <i class="fas {{ icon }}" style="font-size:10px;color:var(--muted)"></i> {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="closePdfModal()" style="flex:1;padding:11px;border:1px solid var(--border);
+              border-radius:10px;background:none;cursor:pointer;font-weight:600;
+              font-size:13px;color:var(--muted)" data-i18n="rpt_btn_cancel">Batal</button>
+      <button onclick="previewCustomPdf()" id="btnCustomPreview" style="flex:1;padding:11px;
+              background:#6b7280;color:white;border:none;
+              border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;
+              display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fas fa-eye"></i> <span data-i18n="rpt_btn_preview">Preview</span>
+      </button>
+      <button onclick="downloadCustomPdf()" id="btnCustomPdf" style="flex:1;padding:11px;
+              background:linear-gradient(135deg,#dc2626,#ff3b30);color:white;border:none;
+              border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;
+              display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fas fa-download"></i> <span data-i18n="rpt_btn_download">Download</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function closePdfModal() {
+    document.getElementById('pdfCustomModal').style.display = 'none';
+}
+
+function toggleChartOptions() {
+    var visCb = document.querySelector('input[name="pdf_section"][value="visualisasi"]');
+    var chartOpts = document.getElementById('chartOptions');
+    chartOpts.style.display = (visCb && visCb.checked) ? 'block' : 'none';
+
+    var tsCb = document.querySelector('input[name="pdf_section"][value="time_series"]');
+    var tsOpts = document.getElementById('tsChartOptions');
+    tsOpts.style.display = (tsCb && tsCb.checked) ? 'block' : 'none';
+}
+
+function selectAllCharts(state) {
+    document.querySelectorAll('input[name="pdf_chart"]').forEach(function(el) {
+        el.checked = state;
+    });
+}
+
+function switchDataSource(status) {
+    window.__pdfStatus = status;
+    var langT3 = typeof I18N !== 'undefined' ? I18N.t : function(k) { return k; };
+    window.__pdfStatusLabel = (status === 'cleaned') ? langT3('rpt_data_bersih') : langT3('rpt_data_mentah');
+
+    var badge = document.getElementById('pdfCardBadge');
+    var badgeIcon = document.getElementById('pdfBadgeIcon');
+    var badgeText = document.getElementById('pdfBadgeText');
+    var desc = document.getElementById('pdfCardDesc');
+
+    if (status === 'cleaned') {
+        badge.style.background = '#d1fae5';
+        badge.style.color = '#065f46';
+        badge.style.borderColor = '#6ee7b7';
+        badgeIcon.className = 'fas fa-check-circle';
+        badgeText.textContent = langT3('rpt_cleaned');
+        desc.innerHTML = langT3('rpt_clean_desc');
+    } else {
+        badge.style.background = '#fef3c7';
+        badge.style.color = '#92400e';
+        badge.style.borderColor = '#fcd34d';
+        badgeIcon.className = 'fas fa-exclamation-triangle';
+        badgeText.textContent = langT3('rpt_raw');
+        desc.innerHTML = langT3('rpt_raw_desc');
+    }
+
+    var downloadPdfBtn = document.getElementById('btnDownloadPdf');
+    var fname = window.__pdfFilename;
+    if (downloadPdfBtn) {
+        downloadPdfBtn.href = '/dashboard/' + encodeURIComponent(fname) + '/report/pdf?status=' + status;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var visCb = document.querySelector('input[name="pdf_section"][value="visualisasi"]');
+    if (visCb) {
+        visCb.addEventListener('change', toggleChartOptions);
+        toggleChartOptions();
+    }
+
+});
+
+function getSelectedCharts() {
+    var charts = [];
+    document.querySelectorAll('input[name="pdf_chart"]:checked').forEach(function(el) {
+        charts.push(el.value);
+    });
+    document.querySelectorAll('input[name="pdf_ts_chart"]:checked').forEach(function(el) {
+        charts.push(el.value);
+    });
+    return charts;
+}
+
+async function downloadCustomPdf() {
+    var btn = document.getElementById('btnCustomPdf');
+    var origHtml = btn.innerHTML;
+    var langT4 = typeof I18N !== 'undefined' ? I18N.t : function(k) { return k; };
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + langT4('rpt_generating');
+    btn.disabled = true;
+
+    var sections = [];
+    document.querySelectorAll('input[name="pdf_section"]:checked').forEach(function(el) {
+        sections.push(el.value);
+    });
+    var title   = document.getElementById('rptTitle').value;
+    var analyst = document.getElementById('rptAnalyst').value;
+    var filename = window.__pdfFilename;
+    var status = window.__pdfStatus;
+
+    try {
+        var res = await fetch('/dashboard/' + filename + '/report/pdf/custom', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                selected_sections: sections,
+                selected_charts:   getSelectedCharts(),
+                report_title:      title,
+                analyst_name:      analyst,
+                status:            status,
+            })
+        });
+
+        if (!res.ok) {
+            var errData = await res.json().catch(function() { return {error: 'Failed to generate PDF'}; });
+            throw new Error(errData.error || 'Gagal generate PDF');
+        }
+
+        var blob = await res.blob();
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'Laporan_' + filename + '_' + new Date().toISOString().slice(0,10) + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        closePdfModal();
+    } catch (err) {
+        alert('Error: ' + err.message);
+    } finally {
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+function previewCustomPdf() {
+    var sections = [];
+    document.querySelectorAll('input[name="pdf_section"]:checked').forEach(function(el) {
+        sections.push(el.value);
+    });
+    var title    = document.getElementById('rptTitle').value;
+    var analyst  = document.getElementById('rptAnalyst').value;
+    var filename = window.__pdfFilename;
+    var status   = window.__pdfStatus;
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/dashboard/' + filename + '/report/pdf/custom/preview';
+    form.target = '_blank';
+    form.style.display = 'none';
+
+    var payload = {
+        selected_sections: JSON.stringify(sections),
+        selected_charts:   JSON.stringify(getSelectedCharts()),
+        report_title:      title,
+        analyst_name:      analyst,
+        status:            status,
+    };
+
+    for (var key in payload) {
+        if (payload.hasOwnProperty(key)) {
+            var inp = document.createElement('input');
+            inp.name = key;
+            inp.value = payload[key];
+            form.appendChild(inp);
+        }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+
+<!-- ═══ MODAL CUSTOM EXPORT (Excel/CSV/JSON) ═══ -->
+<div id="exportCustomModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+     z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card-bg);border-radius:20px;padding:32px;
+       max-width:560px;width:100%;max-height:90vh;overflow-y:auto;
+       border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h3 style="font-weight:800;font-size:1.1rem">
+          <i id="exportCustomIcon" class="fas fa-file-excel" style="margin-right:8px"></i>
+          <span id="exportCustomTitle">Custom Export</span>
+        </h3>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px">Pilih kolom yang ingin di-export</p>
+      </div>
+      <button onclick="closeExportCustomModal()" style="background:none;border:none;
+              font-size:20px;cursor:pointer;color:var(--muted)">&#10005;</button>
+    </div>
+
+    <!-- Info bar -->
+    <div id="exportCustomInfo" style="padding:10px 14px;border-radius:10px;background:var(--bg);
+         border:1px solid var(--border);margin-bottom:16px;font-size:12px;color:var(--muted);
+         display:flex;align-items:center;gap:8px">
+      <i class="fas fa-info-circle" style="color:var(--blue)"></i>
+      <span id="exportCustomInfoText">Semua kolom akan di-export secara default.</span>
+    </div>
+
+    <!-- Column list -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <p style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:0">
+        Pilih Kolom
+      </p>
+      <div style="display:flex;gap:6px">
+        <button type="button" onclick="toggleAllExportCols(true)"
+                style="padding:3px 10px;border-radius:6px;border:1px solid var(--border);
+                       background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--muted)">
+          Select All
+        </button>
+        <button type="button" onclick="toggleAllExportCols(false)"
+                style="padding:3px 10px;border-radius:6px;border:1px solid var(--border);
+                       background:var(--bg);cursor:pointer;font-size:10px;font-weight:700;color:var(--muted)">
+          Deselect All
+        </button>
+      </div>
+    </div>
+
+    <div id="exportColList" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;
+         max-height:320px;overflow-y:auto;padding-right:4px;margin-bottom:20px">
+      {% for col in num_cols %}
+      <label style="display:flex;align-items:center;gap:6px;padding:7px 10px;
+             border:1px solid var(--border);border-radius:8px;cursor:pointer;
+             font-size:12px;font-weight:600;background:var(--bg);transition:all .15s"
+             class="export-col-label">
+        <input type="checkbox" name="export_col" value="{{ col }}" checked
+               class="export-col-cb"
+               style="accent-color:#2563eb;width:14px;height:14px">
+        <i class="fas fa-hashtag" style="font-size:10px;color:var(--blue)"></i> {{ col }}
+      </label>
+      {% endfor %}
+      {% for col in cat_cols %}
+      <label style="display:flex;align-items:center;gap:6px;padding:7px 10px;
+             border:1px solid var(--border);border-radius:8px;cursor:pointer;
+             font-size:12px;font-weight:600;background:var(--bg);transition:all .15s"
+             class="export-col-label">
+        <input type="checkbox" name="export_col" value="{{ col }}" checked
+               class="export-col-cb"
+               style="accent-color:#2563eb;width:14px;height:14px">
+        <i class="fas fa-font" style="font-size:10px;color:var(--green,#059669)"></i> {{ col }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <!-- Col count badge -->
+    <div style="margin-bottom:16px;text-align:center">
+      <span id="exportColCount" style="font-size:11px;font-weight:700;color:var(--muted);
+            padding:4px 12px;border-radius:20px;background:var(--bg);border:1px solid var(--border)">
+        0 kolom dipilih
+      </span>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="closeExportCustomModal()" style="flex:1;padding:11px;border:1px solid var(--border);
+              border-radius:10px;background:none;cursor:pointer;font-weight:600;
+              font-size:13px;color:var(--muted)">Batal</button>
+      <button onclick="downloadCustomExport()" id="btnCustomExport" style="flex:1;padding:11px;
+              background:var(--blue);color:white;border:none;
+              border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;
+              display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="fas fa-download"></i> <span>Download</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var exportType = '';
+  var exportFilename = '';
+
+  function openExportCustomModal(type, filename) {
+    exportType = type;
+    exportFilename = filename;
+
+    var modal = document.getElementById('exportCustomModal');
+    var icon = document.getElementById('exportCustomIcon');
+    var title = document.getElementById('exportCustomTitle');
+    var infoText = document.getElementById('exportCustomInfoText');
+    var btn = document.getElementById('btnCustomExport');
+
+    var colors = { excel: '#217346', csv: '#3b82f6', json: '#f59e0b' };
+    var icons  = { excel: 'fa-file-excel', csv: 'fa-file-csv', json: 'fa-file-code' };
+    var labels = { excel: 'Excel', csv: 'CSV', json: 'JSON' };
+
+    icon.className = 'fas ' + icons[type];
+    icon.style.color = colors[type];
+    title.textContent = 'Custom ' + labels[type] + ' Export';
+    infoText.textContent = 'Pilih kolom yang ingin di-export ke file ' + labels[type] + '.';
+    btn.style.background = colors[type];
+
+    // Reset all checked
+    document.querySelectorAll('.export-col-cb').forEach(function(cb) { cb.checked = true; });
+    updateExportColCount();
+
+    modal.style.display = 'flex';
+  }
+
+  function closeExportCustomModal() {
+    document.getElementById('exportCustomModal').style.display = 'none';
+  }
+
+  function toggleAllExportCols(state) {
+    document.querySelectorAll('.export-col-cb').forEach(function(cb) { cb.checked = state; });
+    updateExportColCount();
+  }
+
+  function updateExportColCount() {
+    var total = document.querySelectorAll('.export-col-cb').length;
+    var checked = document.querySelectorAll('.export-col-cb:checked').length;
+    var badge = document.getElementById('exportColCount');
+    badge.textContent = checked + ' / ' + total + ' kolom dipilih';
+  }
+
+  function getSelectedExportCols() {
+    var cols = [];
+    document.querySelectorAll('.export-col-cb:checked').forEach(function(cb) {
+      cols.push(cb.value);
+    });
+    return cols;
+  }
+
+  async function downloadCustomExport() {
+    var btn = document.getElementById('btnCustomExport');
+    var origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+    btn.disabled = true;
+
+    var selectedCols = getSelectedExportCols();
+
+    try {
+      var res = await fetch('/dashboard/' + encodeURIComponent(exportFilename) + '/export/' + exportType + '/custom', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ selected_columns: selectedCols })
+      });
+
+      if (!res.ok) {
+        var errData = await res.json().catch(function() { return {error: 'Export failed'}; });
+        throw new Error(errData.error || 'Gagal generate file');
+      }
+
+      var blob = await res.blob();
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href     = url;
+      var ext = { excel: 'xlsx', csv: 'csv', json: 'json' };
+      a.download = exportFilename.replace(/\.[^.]+$/, '') + '_custom.' + ext[exportType];
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      closeExportCustomModal();
+      if (typeof showDownloadToast === 'function') {
+        showDownloadToast('Custom ' + exportType.toUpperCase() + ' Export');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    }
+  }
+
+  // Bind custom buttons
+  document.querySelectorAll('.btn-open-export-custom').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      openExportCustomModal(this.dataset.type, this.dataset.filename);
+    });
+  });
+
+  // Bind col checkboxes for count
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('export-col-cb')) {
+      updateExportColCount();
+    }
+  });
+
+  // Expose to global
+  window.closeExportCustomModal = closeExportCustomModal;
+  window.toggleAllExportCols = toggleAllExportCols;
+  window.downloadCustomExport = downloadCustomExport;
+})();
+</script>
+
+{% else %}
+  <div class="rpt-empty">
+    <i class="fas fa-file-export"></i>
+    <h3 data-i18n="rpt_no_dataset">No Dataset Selected</h3>
+    <p data-i18n="rpt_no_dataset_desc">Upload a dataset first to generate PDF reports. Once uploaded, PDF reports for both raw and cleaned data will be available.</p>
+    <a href="{{ url_for('upload_file') }}" class="btn-primary">
+      <i class="fas fa-cloud-upload-alt"></i> <span data-i18n="nav_upload">Upload Data</span>
+    </a>
+  </div>
+{% endif %}
+
+{% endblock %}

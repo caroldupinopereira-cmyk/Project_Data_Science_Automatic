@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.time-series-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 0;
+}
+.time-series-header {
+    margin-bottom: 28px;
+}
+.time-series-header h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.time-series-header p {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+.ts-controls-panel {
+    margin-bottom: 24px;
+    padding: 20px 24px;
+    border-radius: 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+}
+.ts-controls-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+.ts-control-group {
+    flex: 1;
+    min-width: 200px;
+}
+.ts-control-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    opacity: 0.7;
+}
+.ts-select-wrap {
+    position: relative;
+}
+.ts-select {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    padding: 10px 32px 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.ts-select:hover {
+    border-color: var(--blue);
+}
+.ts-select:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+.ts-select-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--muted);
+    pointer-events: none;
+    opacity: 0.6;
+}
+.ts-vs-badge {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    opacity: 0.5;
+    padding: 0 4px;
+    margin-bottom: 4px;
+}
+.time-series-summary-grid {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    width: 100%;
+}
+.metric-summary-card {
+    flex: 1;
+    padding: 18px 24px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    backdrop-filter: blur(4px);
+}
+[data-theme="dark"] .metric-summary-card {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="light"] .metric-summary-card {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+.metric-summary-label {
+    font-size: clamp(9px, 1vw, 11px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    color: var(--muted);
+}
+.metric-summary-label.green {
+    color: var(--green);
+}
+.metric-summary-label.muted {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+.metric-summary-label.indigo {
+    color: var(--purple);
+}
+.metric-summary-value {
+    font-size: clamp(14px, 2.5vw, 18px);
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 6px;
+    letter-spacing: -0.2px;
+}
+.metric-summary-value.mono {
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', monospace;
+}
+.metric-summary-value.text-muted {
+    color: var(--muted);
+}
+.ts-chart-card {
+    border-radius: 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+.ts-chart-card .card-header-clean {
+    padding: 16px 20px;
+}
+.ts-chart-card .card-header-clean h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.chart-badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    margin-left: 4px;
+}
+#timeseries-chart-container {
+    width: 100%;
+    min-height: 420px;
+}
+.ts-nav-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.ts-nav-tab-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+.ts-nav-tab-btn:hover {
+    border-color: var(--blue);
+    color: var(--text);
+}
+.ts-nav-tab-btn.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #ffffff;
+}
+@media (max-width: 768px) {
+    .time-series-summary-grid {
+        flex-direction: column;
+    }
+    .ts-controls-row {
+        flex-direction: column;
+    }
+    .ts-control-group {
+        min-width: 100%;
+    }
+}
+</style>
+
+<div class="time-series-page">
+    <div class="time-series-header">
+        <h2><i class="fas fa-chart-line text-green"></i> Time Series Analytics</h2>
+        <p class="text-muted">
+            Interactive time series analysis for <strong>{{ filename }}</strong>
+            &mdash; select a time/categorical dimension and numerical metric below
+        </p>
+    </div>
+
+    <div class="ts-controls-panel">
+        <div class="ts-controls-row">
+            <div class="ts-control-group">
+                <label class="ts-control-label" for="ts-dropdown-categorical">TIME / CATEGORICAL DIMENSION</label>
+                <div class="ts-select-wrap">
+                    <select id="ts-dropdown-categorical" class="ts-select">
+                        {% for col in categorical_or_date_cols %}
+                        <option value="{{ col }}" {% if loop.first %}selected{% endif %}>{{ col | replace('_', ' ') | title }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down ts-select-arrow"></i>
+                </div>
+            </div>
+            <span class="ts-vs-badge">vs</span>
+            <div class="ts-control-group">
+                <label class="ts-control-label" for="ts-dropdown-numerical">NUMERICAL METRIC</label>
+                <div class="ts-select-wrap">
+                    <select id="ts-dropdown-numerical" class="ts-select">
+                        {% for col in num_cols %}
+                        <option value="{{ col }}" {% if loop.first %}selected{% endif %}>{{ col | replace('_', ' ') | title }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down ts-select-arrow"></i>
+                </div>
+            </div>
+            <span class="ts-vs-badge"></span>
+            <div class="ts-control-group">
+                <label class="ts-control-label" for="ts-dropdown-granularity">GRANULARITY</label>
+                <div class="ts-select-wrap">
+                    <select id="ts-dropdown-granularity" class="ts-select">
+                        <option value="Auto" selected>Auto</option>
+                        <option value="Raw">Raw</option>
+                        <option value="Hourly">Hourly</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Yearly">Yearly</option>
+                    </select>
+                    <i class="fas fa-chevron-down ts-select-arrow"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="time-series-summary-grid" style="margin-bottom:12px;">
+        <div class="metric-summary-card">
+            <span class="metric-summary-label green">Chronological Trend</span>
+            <div id="kpi-chron-trend" class="metric-summary-value">Analyzing...</div>
+        </div>
+        <div class="metric-summary-card">
+            <span class="metric-summary-label muted">Regression Slope</span>
+            <div id="kpi-regression-slope" class="metric-summary-value mono">0.000000</div>
+        </div>
+        <div class="metric-summary-card">
+            <span class="metric-summary-label indigo">Horizon Points Mapped</span>
+            <div id="kpi-horizon-points" class="metric-summary-value">0 timestamps</div>
+        </div>
+    </div>
+
+    <div class="time-series-summary-grid" style="margin-bottom:24px;">
+        <div class="metric-summary-card">
+            <span class="metric-summary-label" style="color:var(--green);">Current Value</span>
+            <div id="kpi-current-value" class="metric-summary-value">—</div>
+        </div>
+        <div class="metric-summary-card">
+            <span class="metric-summary-label" style="color:var(--purple);">Average</span>
+            <div id="kpi-average" class="metric-summary-value">—</div>
+        </div>
+        <div class="metric-summary-card">
+            <span class="metric-summary-label" style="color:var(--orange);">Trend Direction</span>
+            <div id="kpi-trend-dir" class="metric-summary-value">—</div>
+        </div>
+        <div class="metric-summary-card">
+            <span class="metric-summary-label" style="color:var(--red);">% Change</span>
+            <div id="kpi-pct-change" class="metric-summary-value">—</div>
+        </div>
+    </div>
+
+    <div class="ts-nav-tabs">
+        <button class="ts-nav-tab-btn active" data-chart-key="ts_line">Line Chart</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_trend">Trend</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_ma">Moving Avg</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_rolling">Rolling Mean</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_forecast">Forecast</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_acf_pacf">ACF/PACF</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_summary">Summary</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_overview">Overview</button>
+    </div>
+
+    <div class="ts-chart-card">
+        <div class="card-header-clean">
+            <h4>
+                <i class="fas fa-chart-line text-green"></i>
+                Time Series Analytics &mdash; <span id="ts-active-tab-label">Line Chart</span>
+                <span class="chart-badge">Temporal</span>
+            </h4>
+        </div>
+        <div id="timeseries-chart-container" style="min-height:500px;"></div>
+    </div>
+</div>
+
+<script>
+let timeSeriesCache = null;
+let currentActiveTabKey = 'ts_line';
+
+function updateWholeTimeSeriesWorkspace() {
+    const selectedCat = document.getElementById('ts-dropdown-categorical').value;
+    const selectedNum = document.getElementById('ts-dropdown-numerical').value;
+    const selectedGran = document.getElementById('ts-dropdown-granularity').value;
+    const filename = {{ filename | tojson }};
+
+    fetch(`/api/get_complete_timeseries?filename=${encodeURIComponent(filename)}&categorical=${encodeURIComponent(selectedCat)}&numerical=${encodeURIComponent(selectedNum)}&granularity=${encodeURIComponent(selectedGran)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                timeSeriesCache = data.plots;
+
+                document.getElementById('kpi-chron-trend').innerText = data.kpis.chron_trend;
+                document.getElementById('kpi-regression-slope').innerText = data.kpis.slope;
+                document.getElementById('kpi-horizon-points').innerText = data.kpis.horizon;
+
+                document.getElementById('kpi-current-value').innerText = data.kpis.current_value;
+                document.getElementById('kpi-average').innerText = data.kpis.average;
+                document.getElementById('kpi-trend-dir').innerText = data.kpis.trend_dir;
+                document.getElementById('kpi-pct-change').innerText = data.kpis.pct_change;
+
+                renderSelectedTabPlot();
+            }
+        })
+        .catch(err => console.error("Critical channel pipeline failure:", err));
+}
+
+function renderSelectedTabPlot() {
+    if (!timeSeriesCache || !timeSeriesCache[currentActiveTabKey]) return;
+
+    const targetContainer = document.getElementById('timeseries-chart-container');
+    if (targetContainer) {
+        targetContainer.innerHTML = '';
+    }
+
+    const chartPayload = timeSeriesCache[currentActiveTabKey];
+
+    if (currentActiveTabKey === 'ts_summary') {
+        renderTsSummaryStandalone(chartPayload);
+        return;
+    }
+
+    Plotly.newPlot('timeseries-chart-container', chartPayload.data, chartPayload.layout, {responsive: true, displayModeBar: false, displaylogo: false});
+}
+
+function renderTsSummaryStandalone(stats) {
+    var el = document.getElementById('timeseries-chart-container');
+    if (!el || !stats) return;
+    var icons = {
+        'Count': 'fa-hashtag', 'Start Date': 'fa-calendar', 'End Date': 'fa-calendar',
+        'Frequency': 'fa-clock', 'Mean': 'fa-equals', 'Median': 'fa-minus',
+        'Std Dev': 'fa-chart-line', 'Variance': 'fa-square', 'Min': 'fa-arrow-down',
+        'Max': 'fa-arrow-up', 'Range': 'fa-arrows-left-right', 'Skewness': 'fa-delta',
+        'Kurtosis': 'fa-mountain', 'CV (%)': 'fa-percent', 'Slope': 'fa-arrow-trend-up',
+        'R\u00B2': 'fa-bullseye', 'P-Value': 'fa-vial', 'Std Error': 'fa-crosshairs'
+    };
+    var colors = ['#4318ff', '#05cd99', '#ffce20', '#ee5d50', '#868cff', '#17a2b8'];
+    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:10px;">';
+    var i = 0;
+    for (var key in stats) {
+        if (!stats.hasOwnProperty(key)) continue;
+        var val = stats[key];
+        var icon = icons[key] || 'fa-circle';
+        var color = colors[i % colors.length];
+        html += '<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;border-left:3px solid ' + color + ';">';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+        html += '<i class="fas ' + icon + '" style="color:' + color + ';font-size:0.8rem;"></i>';
+        html += '<span style="font-size:0.7rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);">' + key + '</span></div>';
+        html += '<div style="font-size:1.1rem;font-weight:800;color:var(--text);">' + val + '</div></div>';
+        i++;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.ts-nav-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.ts-nav-tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentActiveTabKey = this.getAttribute('data-chart-key');
+            document.getElementById('ts-active-tab-label').innerText = this.innerText;
+            renderSelectedTabPlot();
+        });
+    });
+
+    document.getElementById('ts-dropdown-categorical').addEventListener('change', updateWholeTimeSeriesWorkspace);
+    document.getElementById('ts-dropdown-numerical').addEventListener('change', updateWholeTimeSeriesWorkspace);
+    document.getElementById('ts-dropdown-granularity').addEventListener('change', updateWholeTimeSeriesWorkspace);
+    setTimeout(updateWholeTimeSeriesWorkspace, 200);
+});
+</script>
+
+{% endblock %}
