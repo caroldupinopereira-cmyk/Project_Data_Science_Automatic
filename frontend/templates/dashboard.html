@@ -257,11 +257,11 @@
     </div>
 
     {% if data_status == 'raw' %}
-    <!-- ══ OVERVIEW: RAW MODE (critical issues — block visualizations) ══ -->
-    <div class="db-global-banner warning" style="display:flex; margin-bottom: 24px;">
-        <i class="fas fa-exclamation-triangle"></i>
+    <!-- ══ OVERVIEW: RAW MODE (show info banner) ══ -->
+    <div class="db-global-banner info" style="display:flex; margin-bottom: 24px;">
+        <i class="fas fa-info-circle"></i>
         <span class="db-banner-msg" data-translate="ov_raw_warning">
-            ⚠️ Dataset terdeteksi belum bersih (Raw Mode). Visualisasi dinonaktifkan hingga data dibersihkan.
+            ⚠️ Dataset terdeteksi belum bersih. Disarankan melakukan pembersihan data terlebih dahulu.
         </span>
         <button class="db-banner-cta" onclick="switchTab('cleaning')" data-translate="banner_clean_btn">
             <i class="fas fa-broom"></i> Bersihkan Sekarang
@@ -386,8 +386,7 @@
     </div>
     {% endif %}
 
-    <!-- ── Chart Grid + Stats: shown for both clean and clean_with_outliers ── -->
-    {% if data_status != 'raw' %}
+    <!-- ── Chart Grid + Stats: always shown ── -->
 
     <!-- ── Chart Grid Baris Atas ── -->
     {% set mid_visible = overview.slots.ov_hbar.visible or overview.slots.ov_center.visible or overview.slots.ov_top_right.visible %}
@@ -616,7 +615,6 @@
             {% endfor %}
         </div>
     </div>
-    {% endif %}
     {% endif %}
 </div>
 <!-- ── END TAB 1: OVERVIEW ── -->
@@ -2346,10 +2344,16 @@ var DCleaning = (function () {
         <div id="viz-master-chart" class="viz-master-container">
             <div id="viz-master-controls" class="viz-master-toolbar">
                 <div class="viz-toolbar-left">
+                    <button id="viz-prev-btn" class="viz-nav-btn" title="Previous chart" onclick="VizMaster.navigatePrev()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
                     <div id="viz-chart-type-select-wrap" class="viz-dd-wrap">
                         <label for="viz-chart-type-select">Chart Type</label>
                         <select id="viz-chart-type-select"></select>
                     </div>
+                    <button id="viz-next-btn" class="viz-nav-btn" title="Next chart" onclick="VizMaster.navigateNext()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
                     <div id="viz-dd-x-wrap" class="viz-dd-wrap">
                         <label for="viz-col-x">Kolom X</label>
                         <select id="viz-col-x"></select>
@@ -2363,10 +2367,29 @@ var DCleaning = (function () {
                         <select id="viz-col-z"></select>
                     </div>
                 </div>
+                <div class="viz-toolbar-right">
+                    <label class="viz-toggle-all-wrap" title="Show all numeric variables at once">
+                        <input type="checkbox" id="viz-toggle-all" onchange="VizMaster.toggleAllVars(this.checked)">
+                        <span class="viz-toggle-all-label"><i class="fas fa-layer-group"></i> All Vars</span>
+                    </label>
+                    <button class="viz-action-btn" id="viz-fullscreen-btn" title="Fullscreen" onclick="VizMaster.toggleFullscreen()">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <div class="viz-export-group">
+                        <button class="viz-action-btn" title="Download PNG" onclick="VizMaster.exportChart('png')">
+                            <i class="fas fa-image"></i>
+                        </button>
+                        <button class="viz-action-btn" title="Download SVG" onclick="VizMaster.exportChart('svg')">
+                            <i class="fas fa-vector-square"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
+            <div id="viz-chart-desc" class="viz-chart-desc"></div>
+
             <div id="viz-master-plot" class="viz-master-plot">
-                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7EA9FF;">
+                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--blue);">
                     <i class="fas fa-chart-bar" style="font-size:2rem;opacity:.3;"></i>
                     <span style="margin-left:12px;font-size:.9rem;opacity:.5;" data-translate="viz_select_hint">Select a category from the sidebar to start</span>
                 </div>
@@ -2392,8 +2415,35 @@ var DCleaning = (function () {
         <p class="text-muted">Auto-detected datetime column</p>
     </div>
 
+    <!-- ── Column Selection Dropdowns ── -->
+    <div class="ts-controls-row" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;">
+        <div style="flex:1;min-width:180px;">
+            <label style="display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">
+                <i class="fas fa-calendar-alt"></i> Date Dimension
+            </label>
+            <select id="ts-dt-col-select" onchange="tsApplyColumns()" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:.85rem;">
+                {% for col in dt_cols %}
+                <option value="{{ col }}" {% if col == ts_meta.dt_col %}selected{% endif %}>{{ col | replace('_', ' ') | title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="flex:1;min-width:180px;">
+            <label style="display:block;font-size:.75rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">
+                <i class="fas fa-chart-bar"></i> Numerical Metric
+            </label>
+            <select id="ts-num-col-select" onchange="tsApplyColumns()" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:.85rem;">
+                {% for col in num_cols %}
+                <option value="{{ col }}" {% if col == ts_meta.num_col %}selected{% endif %}>{{ col | replace('_', ' ') | title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div id="ts-loading-indicator" style="flex:0 0 auto;display:none;padding:8px 12px;font-size:.8rem;color:var(--muted);">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+    </div>
+
     {% if ts_meta %}
-    <div class="ts-meta-strip mb-4">
+    <div class="ts-meta-strip mb-4" id="ts-meta-strip">
         <div class="ts-meta-item"><span class="ts-meta-label">Date Column</span><span class="ts-meta-value">{{ ts_meta.dt_col }}</span></div>
         <div class="ts-meta-item"><span class="ts-meta-label">Metric</span><span class="ts-meta-value">{{ ts_meta.num_col }}</span></div>
         <div class="ts-meta-item"><span class="ts-meta-label">Frequency</span><span class="ts-meta-value">{{ ts_meta.freq_label }}</span></div>
@@ -2402,7 +2452,15 @@ var DCleaning = (function () {
     </div>
     {% endif %}
 
-    <div id="ts-line" class="ts-subtab-content">
+    <div id="ts-combined" class="ts-subtab-content">
+        <div class="card chart-card">
+            <div class="card-header-clean">
+                <h4><i class="fas fa-layer-group text-blue"></i> Combined: Actual + Trend + Rolling Mean <span class="chart-badge">Dynamic</span></h4>
+            </div>
+            <div id="plot-ts-combined" class="chart-area" style="min-height:420px;"></div>
+        </div>
+    </div>
+    <div id="ts-line" class="ts-subtab-content" style="display:none;">
         <div class="card chart-card">
             <div class="card-header-clean">
                 <h4><i class="fas fa-chart-line text-green"></i> Time Series Line Chart <span class="chart-badge">Temporal</span></h4>
@@ -2432,6 +2490,42 @@ var DCleaning = (function () {
         <div class="card chart-card">
             <div class="card-header-clean"><h4><i class="fas fa-border-all text-red"></i> Overview Panel <span class="chart-badge">4-in-1</span></h4></div>
             <div id="plot-ts-overview" class="chart-area" style="min-height:540px;"></div>
+        </div>
+    </div>
+    <div id="ts-forecast" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-wand-magic-sparkles text-purple"></i> Forecast <span class="chart-badge">Extrapolation</span></h4></div>
+            <div id="plot-ts-forecast" class="chart-area" style="min-height:380px;"></div>
+        </div>
+    </div>
+    <div id="ts-acf-pacf" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-wave-square text-blue"></i> ACF/PACF <span class="chart-badge">Autocorrelation</span></h4></div>
+            <div id="plot-ts-acf-pacf" class="chart-area" style="min-height:380px;"></div>
+        </div>
+    </div>
+    <div id="ts-multi-line" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-layer-group text-green"></i> Multi-Line Chart <span class="chart-badge">Multivariate</span></h4></div>
+            <div id="plot-ts-multi-line" class="chart-area" style="min-height:420px;"></div>
+        </div>
+    </div>
+    <div id="ts-correlation" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-link text-orange"></i> Correlation Heatmap <span class="chart-badge">Multivariate</span></h4></div>
+            <div id="plot-ts-correlation" class="chart-area" style="min-height:420px;"></div>
+        </div>
+    </div>
+    <div id="ts-subplots" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-table-cells text-purple"></i> Subplots <span class="chart-badge">Multivariate</span></h4></div>
+            <div id="plot-ts-subplots" class="chart-area" style="min-height:420px;"></div>
+        </div>
+    </div>
+    <div id="ts-summary" class="ts-subtab-content" style="display:none;">
+        <div class="card chart-card">
+            <div class="card-header-clean"><h4><i class="fas fa-chart-pie text-green"></i> Summary Statistics <span class="chart-badge">Stats</span></h4></div>
+            <div id="plot-ts-summary" class="chart-area" style="min-height:380px;"></div>
         </div>
     </div>
     {% endif %}
@@ -2754,11 +2848,7 @@ function triggerToastAfterReload(msg, type) {
     } else {
         var dataStatus = {{ data_status | tojson }};
         if (dataStatus === 'raw') {
-            setTimeout(function() {
-                if (typeof switchTab === 'function') {
-                    switchTab('cleaning');
-                }
-            }, 50);
+            /* Stay on overview — don't force redirect to cleaning */
         }
     }
 })();
@@ -2778,11 +2868,11 @@ try { overviewPayload = {{ overview | tojson | safe }}; } catch(e) { console.err
 
 var datasetContext = "Filename: {{ filename }}, Rows: {{ metrics.total_rows }}, Cols: {{ metrics.total_columns }}, Numeric: {{ num_cols|join(', ') }}, Categorical: {{ cat_cols|join(', ') }}{% if has_ts %}, DateTime: {{ dt_cols|join(', ') }}{% endif %}";
 
-var TS_CHART_MAP = { 'ts-line':'ts_line', 'ts-trend':'ts_trend', 'ts-ma':'ts_ma', 'ts-rolling':'ts_rolling', 'ts-overview':'ts_overview' };
+var TS_CHART_MAP = { 'ts-combined':'ts_combined', 'ts-line':'ts_line', 'ts-trend':'ts_trend', 'ts-ma':'ts_ma', 'ts-rolling':'ts_rolling', 'ts-overview':'ts_overview', 'ts-forecast':'ts_forecast', 'ts-acf-pacf':'ts_acf_pacf', 'ts-multi-line':'ts_multi_line', 'ts-correlation':'ts_correlation', 'ts-subplots':'ts_subplots', 'ts-summary':'ts_summary' };
 var _tsRendered = {};
 
 var PLOTLY_CFG = {
-    responsive:true, displayModeBar:true,
+    responsive:true, displayModeBar:false,
     modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d'],
     displaylogo:false, scrollZoom:false,
     toImageButtonOptions:{format:'png',scale:2},
@@ -2792,8 +2882,8 @@ function _layoutPatch() {
     var dark = document.body.getAttribute('data-theme')==='dark';
     return {
         paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
-        font:{color:dark?'#c8d8f0':'#2b3674',family:'Inter, sans-serif'},
-        hoverlabel:{bgcolor:'rgba(10,18,48,0.93)',bordercolor:'rgba(100,160,235,0.45)',font:{color:'#e8f4fc',size:13}},
+        font:{color:dark?'#e2e8f0':'#172554',family:'Inter, sans-serif'},
+        hoverlabel:{bgcolor:dark?'rgba(15,23,42,0.95)':'rgba(255,255,255,0.95)',bordercolor:dark?'rgba(59,130,246,0.5)':'rgba(36,85,214,0.3)',font:{color:dark?'#f1f5f9':'#172554',size:13}},
     };
 }
 
@@ -2806,6 +2896,31 @@ function drawTsChart(panelId, plotKey, force) {
     if (!force && _tsRendered[panelId]) { if (typeof Plotly!=='undefined'&&el._fullLayout) Plotly.Plots.resize(el); return; }
     try { if (typeof Plotly!=='undefined') Plotly.purge(el); } catch(e) {}
     el.innerHTML='';
+
+    if (plotKey === 'ts_summary') {
+        var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:16px;">';
+        var colors = ['#4318ff', '#05cd99', '#ffce20', '#ee5d50', '#868cff', '#17a2b8'];
+        var idx = 0;
+        for (var col in plotObj) {
+            if (!plotObj.hasOwnProperty(col)) continue;
+            var stats = plotObj[col];
+            var color = colors[idx % colors.length];
+            html += '<div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:16px;border-top:3px solid ' + color + ';">';
+            html += '<h4 style="margin:0 0 12px 0;font-size:0.95rem;color:var(--text);">' + col + '</h4>';
+            html += '<table style="width:100%;font-size:0.82rem;border-collapse:collapse;">';
+            for (var key in stats) {
+                if (!stats.hasOwnProperty(key)) continue;
+                html += '<tr><td style="padding:4px 0;color:var(--muted);font-weight:600;">' + key + '</td><td style="padding:4px 0;text-align:right;color:var(--text);font-weight:500;">' + stats[key] + '</td></tr>';
+            }
+            html += '</table></div>';
+            idx++;
+        }
+        html += '</div>';
+        el.innerHTML = html;
+        _tsRendered[panelId] = true;
+        return;
+    }
+
     var layout = Object.assign({},plotObj.layout||{},_layoutPatch(),{autosize:true,margin:{l:48,r:20,t:52,b:48}});
     if (typeof Plotly==='undefined') { el.innerHTML='<div style="padding:20px;color:#7eacd0;">Plotly.js tidak dimuat.</div>'; return; }
     Plotly.newPlot(el, plotObj.data||[], layout, PLOTLY_CFG)
@@ -2815,11 +2930,51 @@ function drawTsChart(panelId, plotKey, force) {
 
 function switchTsTab(tab) {
     if (!tab) return;
+    _tsCurrentTab = tab;
     document.querySelectorAll('.ts-subtab-content').forEach(function(el){ el.style.display='none'; });
     var target=document.getElementById('ts-'+tab);
     if (target) target.style.display='block';
     var plotKey=TS_CHART_MAP['ts-'+tab];
     if (plotKey) drawTsChart('ts-'+tab, plotKey, false);
+}
+
+/* ── TS Column Selection: fetch new charts from API ── */
+var _tsCurrentTab = 'combined';
+var _tsFetchPending = null;
+function tsApplyColumns() {
+    var dtCol = document.getElementById('ts-dt-col-select').value;
+    var numCol = document.getElementById('ts-num-col-select').value;
+    var loader = document.getElementById('ts-loading-indicator');
+    if (loader) loader.style.display = '';
+
+    var url = '/api/get_complete_timeseries?filename=' + encodeURIComponent({{ filename | tojson }}) +
+              '&categorical=' + encodeURIComponent(dtCol) +
+              '&numerical=' + encodeURIComponent(numCol);
+
+    if (_tsFetchPending) _tsFetchPending.abort();
+    _tsFetchPending = new AbortController();
+
+    fetch(url, {signal: _tsFetchPending.signal})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.status !== 'success') { showToast(d.error || 'Gagal memuat data.', 'error'); return; }
+            plotsData = d.plots || {};
+            _tsRendered = {};
+            if (d.meta) {
+                var ms = document.getElementById('ts-meta-strip');
+                if (ms) {
+                    ms.innerHTML =
+                        '<div class="ts-meta-item"><span class="ts-meta-label">Date Column</span><span class="ts-meta-value">' + (d.meta.dt_col||'-') + '</span></div>' +
+                        '<div class="ts-meta-item"><span class="ts-meta-label">Metric</span><span class="ts-meta-value">' + (d.meta.num_col||'-') + '</span></div>' +
+                        '<div class="ts-meta-item"><span class="ts-meta-label">Frequency</span><span class="ts-meta-value">' + (d.meta.freq_label||'-') + '</span></div>' +
+                        '<div class="ts-meta-item"><span class="ts-meta-label">Data Points</span><span class="ts-meta-value">' + (d.meta.n_points||'-') + '</span></div>' +
+                        '<div class="ts-meta-item"><span class="ts-meta-label">Period</span><span class="ts-meta-value">' + (d.meta.date_start||'-') + ' → ' + (d.meta.date_end||'-') + '</span></div>';
+                }
+            }
+            switchTsTab(_tsCurrentTab);
+        })
+        .catch(function(e){ if (e.name !== 'AbortError') showToast('Error: ' + e.message, 'error'); })
+        .finally(function(){ if (loader) loader.style.display = 'none'; _tsFetchPending = null; });
 }
 
 /* ── Preview mode toggle (raw / clean) ── */
@@ -2876,7 +3031,7 @@ window.switchTab = function(tab) {
                 }).catch(function(){});
         }, 120);
     }
-    if (tab==='timeseries') { setTimeout(function(){ switchTsTab('line'); }, 80); }
+    if (tab==='timeseries') { setTimeout(function(){ switchTsTab('combined'); }, 80); }
     if (tab==='cleaning') { setTimeout(function(){ if(typeof DCleaning!=='undefined') DCleaning.init(); if(typeof TablePagination!=='undefined') TablePagination.initAll(); }, 80); }
     if (tab==='numerical' || tab==='categorical' || tab==='advanced') {
         setTimeout(function(){ if(typeof TablePagination!=='undefined') TablePagination.initAll(); }, 80);

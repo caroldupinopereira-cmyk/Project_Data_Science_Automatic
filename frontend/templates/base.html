@@ -772,6 +772,14 @@
                     </button>
                     <div class="nav-acc-body" id="acc-ts">
                         <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
+                            <li class="nav-sub-item" id="menu-ts-combined">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('combined'),80); return false;"
+                                    data-tip="Combined View">
+                                    <span class="nav-icon"><i class="fas fa-layer-group"></i></span>
+                                    <span class="nav-label">Combined View</span>
+                                </a>
+                            </li>
                             <li class="nav-sub-item" id="menu-ts-overview">
                                 <a href="#"
                                     onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('overview'),80); return false;"
@@ -810,6 +818,46 @@
                                     data-tip="Rolling Mean">
                                     <span class="nav-icon"><i class="fas fa-redo"></i></span>
                                     <span class="nav-label">Rolling Mean</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-forecast">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('forecast'),80); return false;"
+                                    data-tip="Forecast">
+                                    <span class="nav-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                                    <span class="nav-label">Forecast</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-acf-pacf">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('acf-pacf'),80); return false;"
+                                    data-tip="ACF/PACF">
+                                    <span class="nav-icon"><i class="fas fa-wave-square"></i></span>
+                                    <span class="nav-label">ACF/PACF</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-multi-line">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('multi-line'),80); return false;"
+                                    data-tip="Multi-Line">
+                                    <span class="nav-icon"><i class="fas fa-layer-group"></i></span>
+                                    <span class="nav-label">Multi-Line</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-correlation">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('correlation'),80); return false;"
+                                    data-tip="Correlation">
+                                    <span class="nav-icon"><i class="fas fa-link"></i></span>
+                                    <span class="nav-label">Correlation</span>
+                                </a>
+                            </li>
+                            <li class="nav-sub-item" id="menu-ts-subplots">
+                                <a href="#"
+                                    onclick="switchTab('timeseries'); setTimeout(()=>switchTsTab('subplots'),80); return false;"
+                                    data-tip="Subplots">
+                                    <span class="nav-icon"><i class="fas fa-table-cells"></i></span>
+                                    <span class="nav-label">Subplots</span>
                                 </a>
                             </li>
                         </ul>

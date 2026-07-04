@@ -20,7 +20,7 @@ from backend.viz_engine import (
     generate_master_chart, category_available, CATEGORY_CHARTS, CHART_LABELS,
 )
 from backend.insights_generator import generate_auto_insights
-from backend.time_series import detect_datetime_cols, generate_ts_plots
+from backend.time_series import detect_datetime_cols, generate_ts_plots, generate_complete_timeseries
 from backend.cleaning_engine import (
     get_session, reset_session, delete_session,
     get_quality_report, detect_data_status,
@@ -1302,26 +1302,120 @@ def _load_analysis_df(filename):
 @app.route('/api/viz-chart/<filename>')
 def api_viz_chart(filename):
     """Generate satu grafik master berdasarkan kategori, tipe, dan kolom."""
-    df, num_cols, cat_cols, _ = _load_analysis_df(filename)
-    if df is None:
-        return jsonify({'ok': False, 'placeholder': 'Dataset tidak ditemukan.'}), 404
+    try:
+        df, num_cols, cat_cols, _ = _load_analysis_df(filename)
+        if df is None:
+            return jsonify({'ok': False, 'placeholder': 'Dataset tidak ditemukan.'}), 404
 
-    category   = request.args.get('category', 'numerical')
-    chart_type = request.args.get('chart_type', '')
-    col_x      = request.args.get('col_x') or None
-    col_y      = request.args.get('col_y') or None
-    col_z      = request.args.get('col_z') or None
+        category   = request.args.get('category', 'numerical')
+        chart_type = request.args.get('chart_type', '')
+        col_x      = request.args.get('col_x') or None
+        col_y      = request.args.get('col_y') or None
+        col_z      = request.args.get('col_z') or None
 
-    if not chart_type:
-        types      = CATEGORY_CHARTS.get(category, [])
-        chart_type = types[0] if types else ''
+        if not chart_type:
+            types      = CATEGORY_CHARTS.get(category, [])
+            chart_type = types[0] if types else ''
 
-    result = generate_master_chart(
-        df, num_cols, cat_cols, category, chart_type,
-        col_x=col_x, col_y=col_y, col_z=col_z,
+        result = generate_master_chart(
+            df, num_cols, cat_cols, category, chart_type,
+            col_x=col_x, col_y=col_y, col_z=col_z,
+        )
+        result['category']  = category
+        result['available'] = category_available(category, num_cols, cat_cols)
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'ok'         : False,
+            'placeholder': f'Gagal memuat grafik: {str(e)}',
+            'kpis'       : [],
+        })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIME SERIES PAGE & API
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/timeseries/<filename>')
+@login_required
+def time_series_page(filename):
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        flash('Nama file tidak valid.', 'error')
+        return redirect(url_for('upload_file'))
+
+    base_dir = _user_upload_dir()
+    if not base_dir:
+        flash('Silakan login terlebih dahulu.', 'error')
+        return redirect(url_for('upload_file'))
+
+    filepath = os.path.abspath(os.path.join(base_dir, safe_name))
+    if not filepath.startswith(base_dir) or not os.path.exists(filepath):
+        flash('File tidak ditemukan.', 'error')
+        return redirect(url_for('upload_file'))
+
+    df_raw = load_data(filepath)
+    if df_raw is None:
+        flash('Gagal membaca dataset.', 'error')
+        return redirect(url_for('upload_file'))
+
+    sess = get_session(_session_key(safe_name))
+    df = sess.df_current if sess else df_raw
+
+    num_cols, cat_cols, ts_cols = detect_data_types(df)
+    dt_cols_legacy = detect_datetime_cols(df)
+    dt_cols = list(set(ts_cols + dt_cols_legacy))
+    categorical_or_date_cols = list(set(cat_cols + dt_cols))
+
+    return render_template(
+        'timeseries.html',
+        filename=safe_name,
+        num_cols=num_cols,
+        categorical_or_date_cols=categorical_or_date_cols,
+        dt_cols=dt_cols,
+        has_ts=bool(dt_cols),
     )
-    result['category']  = category
-    result['available'] = category_available(category, num_cols, cat_cols)
+
+
+@app.route('/api/get_complete_timeseries')
+def api_get_complete_timeseries():
+    filename = request.args.get('filename', '')
+    categorical = request.args.get('categorical', '')
+    numerical = request.args.get('numerical', '')
+    granularity = request.args.get('granularity', 'Auto')
+
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({'status': 'error', 'error': 'Nama file tidak valid.'}), 400
+
+    base_dir = _user_upload_dir()
+    if not base_dir:
+        return jsonify({'status': 'error', 'error': 'Silakan login terlebih dahulu.'}), 401
+
+    filepath = os.path.abspath(os.path.join(base_dir, safe_name))
+    if not filepath.startswith(base_dir) or not os.path.exists(filepath):
+        return jsonify({'status': 'error', 'error': 'File tidak ditemukan.'}), 404
+
+    df_raw = load_data(filepath)
+    if df_raw is None:
+        return jsonify({'status': 'error', 'error': 'Gagal membaca dataset.'}), 500
+
+    sess = get_session(_session_key(safe_name))
+    df = sess.df_current if sess else df_raw
+
+    num_cols, cat_cols, ts_cols = detect_data_types(df)
+    dt_cols_legacy = detect_datetime_cols(df)
+    dt_cols = list(set(ts_cols + dt_cols_legacy))
+
+    result = generate_complete_timeseries(
+        df, dt_cols, num_cols,
+        categorical=categorical or None,
+        numerical=numerical or None,
+        granularity=granularity,
+    )
+
     return jsonify(result)
 
 

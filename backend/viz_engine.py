@@ -26,12 +26,14 @@ from scipy import stats as scipy_stats
 from backend.data_sanitizer import sanitize_series, filter_numeric_cols
 
 # ─── High Visual Dark Palette ────────────────────────────────────────────────
-PALETTE = ['#4ECDC4', '#7EA9FF', '#A8E6CF', '#C9B8FF', '#88D4E8', '#F4A9C8']
-BG_CONTAINER = '#111A40'
-PLOT_BG      = '#172254'
-GRID         = 'rgba(255,255,255,0.06)'
-AXIS_LINE    = 'rgba(255,255,255,0.12)'
-FONT_COLOR   = '#C8D8F0'
+PALETTE = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4', '#EC4899', '#14B8A6']
+PALETTE_FILL = ['rgba(59,130,246,0.20)', 'rgba(16,185,129,0.20)', 'rgba(139,92,246,0.20)',
+                'rgba(245,158,11,0.20)', 'rgba(239,68,68,0.20)', 'rgba(6,182,212,0.20)']
+BG_CONTAINER = '#0f172a'
+PLOT_BG      = '#1e293b'
+GRID         = 'rgba(255,255,255,0.07)'
+AXIS_LINE    = 'rgba(255,255,255,0.15)'
+FONT_COLOR   = '#e2e8f0'
 
 # ─── All category→chart-type lists (SINGLE SOURCE OF TRUTH) ──────────────────
 CATEGORY_CHARTS = {
@@ -96,13 +98,13 @@ def _layout(**extra):
         font          = dict(color=FONT_COLOR, family='Inter, sans-serif', size=12),
         margin        = dict(l=52, r=28, t=56, b=56),
         hoverlabel    = dict(
-            bgcolor     = 'rgba(17,26,64,0.95)',
-            bordercolor = 'rgba(126,169,255,0.4)',
-            font        = dict(color='#E8F0FF', size=12),
+            bgcolor     = 'rgba(15,23,42,0.95)',
+            bordercolor = 'rgba(59,130,246,0.5)',
+            font        = dict(color='#f1f5f9', size=12, family='Inter, sans-serif'),
         ),
         legend = dict(
-            bgcolor     = 'rgba(17,26,64,0.6)',
-            bordercolor = 'rgba(255,255,255,0.08)',
+            bgcolor     = 'rgba(15,23,42,0.7)',
+            bordercolor = 'rgba(255,255,255,0.1)',
             font        = dict(color=FONT_COLOR, size=11),
         ),
     )
@@ -271,7 +273,7 @@ def _chart_density(df, col):
             x=kde_x.tolist(), y=(kde(kde_x)).tolist(),
             fill='tozeroy', mode='lines',
             line=dict(color=PALETTE[0], width=2.5),
-            fillcolor='rgba(78,205,196,0.18)', name=col,
+            fillcolor=PALETTE_FILL[0], name=col,
             hovertemplate='%{x:.2f}<br>Density: %{y:.4f}<extra></extra>',
         ))
         fig.update_layout(_layout(title=f' {CHART_LABELS["density"]}: {col}'))
@@ -439,7 +441,7 @@ def _chart_heatmap(df, num_cols):
             z=z_values,
             x=col_list,
             y=col_list,
-            colorscale=[[0, PLOT_BG], [0.5, PALETTE[1]], [1, PALETTE[0]]],
+            colorscale=[[0, '#1e293b'], [0.5, PALETTE[5]], [1, PALETTE[0]]],
             zmid=0,
             text=z_text,
             texttemplate='%{text}',
@@ -508,7 +510,7 @@ def _chart_regression_plot(df, col_x, col_y):
     ci_y = np.concatenate([y_line + ci, (y_line - ci)[::-1]])
     fig.add_trace(go.Scatter(
         x=ci_x.tolist(), y=ci_y.tolist(),
-        fill='toself', fillcolor='rgba(238,93,80,0.10)',
+        fill='toself', fillcolor='rgba(59,130,246,0.12)',
         line=dict(color='rgba(0,0,0,0)'),
         name='95% CI',
     ))
@@ -535,7 +537,7 @@ def _chart_bubble_chart(df, col_x, col_y, col_z):
         marker=dict(
             size=size_scaled,
             color=PALETTE[0], opacity=0.65,
-            line=dict(width=0.5, color='white'),
+            line=dict(width=0.5, color='rgba(255,255,255,0.3)'),
             sizemode='diameter',
         ),
         hovertemplate=f'{col_x}: %{{x:.2f}}<br>{col_y}: %{{y:.2f}}<br>{col_z}: %{{marker.size:.1f}}<extra></extra>',
@@ -642,7 +644,7 @@ def _chart_grouped_bar_compare(df, num_cols):
         x=valid_cols, y=means,
         error_y=dict(
             type='data', array=stds, visible=True,
-            color='rgba(200,216,240,0.6)', thickness=1.5, width=6,
+            color='rgba(226,232,240,0.5)', thickness=1.5, width=6,
         ),
         marker_color=PALETTE[0], opacity=0.9,
         hovertemplate='%{x}<br>Mean: %{y:,.3f}<extra></extra>',
@@ -664,7 +666,7 @@ def _chart_parallel_coords(df, num_cols):
     fig = go.Figure(go.Parcoords(
         line=dict(
             color=color_vals,
-            colorscale=[[0, PALETTE[0]], [0.5, PALETTE[4]], [1, PALETTE[3]]],
+            colorscale=[[0, PALETTE[0]], [0.5, PALETTE[5]], [1, PALETTE[2]]],
             showscale=True,
             colorbar=dict(title='Index', thickness=12, tickfont=dict(color=FONT_COLOR, size=9)),
         ),
@@ -677,9 +679,11 @@ def _chart_parallel_coords(df, num_cols):
 
 def _chart_all_numerical(df, num_cols, chart_type):
     import math
+    import logging as _log
     cols_to_plot = [c for c in num_cols if c in df.columns]
     n_cols = len(cols_to_plot)
     if n_cols == 0:
+        _log.warning(f"[viz] _chart_all_numerical: no cols_to_plot. num_cols={num_cols}, df.columns={list(df.columns)}")
         return None
     
     n_plot_cols = 2 if n_cols > 1 else 1
@@ -736,7 +740,7 @@ def _chart_all_numerical(df, num_cols, chart_type):
                 x_line = np.array([osm.min(), osm.max()])
                 fig.add_trace(go.Scatter(
                     x=x_line.tolist(), y=(slope * x_line + intercept).tolist(),
-                    mode='lines', line=dict(color='#FF7A00', dash='dash', width=1.5),
+                    mode='lines', line=dict(color=PALETTE[3], dash='dash', width=2),
                     name=f'{col} Ref',
                     showlegend=False,
                 ), row=r, col=c)
@@ -758,9 +762,11 @@ def _chart_all_numerical(df, num_cols, chart_type):
 
 def _chart_all_categorical(df, cat_cols, chart_type):
     import math
+    import logging as _log
     cols_to_plot = [c for c in cat_cols if c in df.columns]
     n_cols = len(cols_to_plot)
     if n_cols == 0:
+        _log.warning(f"[viz] _chart_all_categorical: no cols_to_plot. cat_cols={cat_cols}, df.columns={list(df.columns)}")
         return None
         
     n_plot_cols = 2 if n_cols > 1 else 1
@@ -821,7 +827,7 @@ def _chart_all_categorical(df, cat_cols, chart_type):
                 x=x_labels,
                 y=vc.values.tolist(),
                 mode='lines+markers',
-                line=dict(color='#FF7A00', width=1.5),
+                line=dict(color=PALETTE[3], width=2),
                 showlegend=False,
             ), row=r, col=c)
         else: # default bar
@@ -851,6 +857,15 @@ def generate_master_chart(df, num_cols, cat_cols, category, chart_type,
             'placeholder': PLACEHOLDERS.get(category, 'Dataset tidak kompatibel.'),
             'kpis'       : [],
         }
+
+    # ── Sanitize semua kolom numerik SEBELUM chart building ────────────────
+    # Ini mencegah "Cannot perform reduction 'mean' with string dtype"
+    # pada raw data yang kolom numeriknya masih berisi string.
+    df_work = df.copy()
+    for col in num_cols:
+        if col in df_work.columns:
+            df_work[col] = sanitize_series(df_work[col], col)
+    df = df_work
 
     types = CATEGORY_CHARTS.get(category, [])
     if not chart_type or chart_type not in types:
@@ -910,14 +925,21 @@ def generate_master_chart(df, num_cols, cat_cols, category, chart_type,
                     {'label': 'Total Rows', 'value': f'{len(df):,}', 'icon': 'fa-list'},
                     {'label': 'Missing Cells', 'value': f'{int(df[cat_cols].isna().sum().sum()):,}', 'icon': 'fa-exclamation'},
                 ]
+            elif category == 'compare':
+                chart = _chart_all_numerical(df, num_cols, chart_type)
+                kpis = [
+                    {'label': 'Numerical Cols', 'value': str(len(num_cols)), 'icon': 'fa-columns'},
+                    {'label': 'Total Rows', 'value': f'{len(df):,}', 'icon': 'fa-list'},
+                    {'label': 'Missing Cells', 'value': f'{int(df[num_cols].isna().sum().sum()):,}', 'icon': 'fa-exclamation'},
+                ]
             else:
                 chart = None
-                kpis = []
+                kpis = [{'label': 'Info', 'value': 'All Vars belum didukung untuk kategori ini', 'icon': 'fa-info'}]
             
             if chart is None:
                 return {
                     'ok'         : False,
-                    'placeholder': f'Gagal membuat grafik untuk semua variabel.',
+                    'placeholder': 'Tidak ada data yang bisa ditampilkan. Pastikan dataset memiliki kolom yang sesuai.',
                     'kpis'       : kpis,
                 }
             

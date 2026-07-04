@@ -81,15 +81,15 @@ var OverviewDashboard = (function () {
             paper_bgcolor : 'rgba(0,0,0,0)',
             plot_bgcolor  : 'rgba(0,0,0,0)',
             font          : {
-                color  : dark ? '#c8d8f0' : '#2b3674',
+                color  : dark ? '#e2e8f0' : '#172554',
                 family : 'Inter, sans-serif',
                 size   : 11,
             },
             margin    : { l: 44, r: 16, t: 38, b: 38 },
             hoverlabel: {
-                bgcolor    : 'rgba(10,18,48,0.93)',
-                bordercolor: 'rgba(100,160,235,0.45)',
-                font       : { color: '#e8f4fc', size: 12 },
+                bgcolor    : dark ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.95)',
+                bordercolor: dark ? 'rgba(59,130,246,0.5)' : 'rgba(36,85,214,0.3)',
+                font       : { color: dark ? '#f1f5f9' : '#172554', size: 12 },
             },
         };
     }

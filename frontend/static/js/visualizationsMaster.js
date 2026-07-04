@@ -67,6 +67,30 @@ var VizMaster = (function () {
         compare     : { needsX: 'multi-num', needsY: false, needsZ: false },
     };
 
+    var CHART_DESC = {
+        histogram       : 'Distribusi frekuensi data numerik dengan overlay KDE (kernel density estimation). Cocok untuk melihat bentuk distribusi, skewness, dan outlier.',
+        boxplot         : 'Box plot menunjukkan quartile, median, dan outlier. Bagus untuk membandingkan distribusi antar kelompok.',
+        density         : 'Estimasi kepadatan probabilitas (KDE) yang lebih halus dari histogram. Menunjukkan pola distribusi data.',
+        qq              : 'Quantile-Quantile plot untuk mengecek normalitas data. Titik yang mengikuti garis = data normal.',
+        violin          : 'Kombinasi box plot dan density plot. Menunjukkan bentuk distribusi secara lebih detail.',
+        bar             : 'Frekuensi kemunculan setiap kategori. Ideal untuk data kategorikal.',
+        pie             : 'Donut chart untuk proporsi komposisi kategori. Gunakan untuk kategori (< 5) saja.',
+        count           : 'Horizontal bar chart untuk frekuensi kategori dengan banyak nilai unik.',
+        pareto          : 'Kombinasi bar + cumulative line. Menerapkan prinsip 80/20 (Pareto).',
+        scatter         : 'Plot hubungan antara dua variabel numerik. Cocok untuk melihat korelasi dan pola.',
+        heatmap         : 'Matriks korelasi antar variabel numerik. Warna = kekuatan korelasi (-1 sampai +1).',
+        scatter_matrix  : 'Pair plot: scatter plot untuk semua kombinasi variabel numerik. Melihat hubungan multivariat.',
+        regression_plot : 'Scatter plot dengan garis regresi OLS dan confidence interval 95%.',
+        bubble_chart    : 'Scatter plot dengan ukuran titik berdasarkan variabel ketiga (z).',
+        box_cat_num     : 'Distribusi variabel numerik per kategori menggunakan box plot.',
+        violin_cat_num  : 'Distribusi variabel numerik per kategori menggunakan violin plot.',
+        grouped_bar     : 'Rata-rata variabel numerik per kategori. Membandingkan nilai antar kelompok.',
+        strip_plot      : 'Titik-titik data per kategori. Melihat distribusi individual dalam setiap kelompok.',
+        violin_compare  : 'Perbandingan distribusi beberapa variabel numerik sekaligus.',
+        grouped_bar_compare : 'Perbandingan mean ± std antar beberapa variabel numerik.',
+        parallel_coords : 'Visualisasi multivariat untuk melihat pola dan kluster data.',
+    };
+
     var NO_DROPDOWN_CHARTS = {
         heatmap        : true,
         scatter_matrix : true,
@@ -218,7 +242,7 @@ var VizMaster = (function () {
         btn.type = 'button';
         btn.style.cssText = [
             'display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;',
-            'border:1px solid rgba(255,255,255,0.12);background:#172254;color:#c8d8f0;',
+            'border:1px solid var(--border);background:var(--surface);color:var(--text);',
             'font-size:0.78rem;font-weight:600;cursor:pointer;white-space:nowrap;',
             'font-family:inherit;min-width:110px;transition:border-color .2s;',
         ].join('');
@@ -234,30 +258,30 @@ var VizMaster = (function () {
         panel.style.cssText = [
             'display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;',
             'min-width:180px;max-height:240px;overflow-y:auto;',
-            'background:#1a2660;border:1px solid rgba(255,255,255,0.12);',
-            'border-radius:10px;padding:8px 4px;box-shadow:0 8px 24px rgba(0,0,0,.4);',
+            'background:var(--surface);border:1px solid var(--border);',
+            'border-radius:10px;padding:8px 4px;box-shadow:var(--shadow-md);',
             'scrollbar-width:thin;',
         ].join('');
 
         // Select all / clear row
         var actRow = document.createElement('div');
-        actRow.style.cssText = 'display:flex;gap:6px;padding:4px 8px 8px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:4px;';
+        actRow.style.cssText = 'display:flex;gap:6px;padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;';
         var btnAll = document.createElement('button');
         var btnClr = document.createElement('button');
-        var _bs = 'flex:1;padding:3px 0;font-size:.7rem;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid rgba(255,255,255,.1);font-family:inherit;';
-        btnAll.type='button'; btnAll.textContent='Semua'; btnAll.style.cssText=_bs+'background:#4364f7;color:#fff;';
-        btnClr.type='button'; btnClr.textContent='Kosongkan'; btnClr.style.cssText=_bs+'background:transparent;color:#8899bb;';
+        var _bs = 'flex:1;padding:3px 0;font-size:.7rem;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid var(--border);font-family:inherit;';
+        btnAll.type='button'; btnAll.textContent='Semua'; btnAll.style.cssText=_bs+'background:var(--blue);color:#fff;';
+        btnClr.type='button'; btnClr.textContent='Kosongkan'; btnClr.style.cssText=_bs+'background:transparent;color:var(--muted);';
         actRow.appendChild(btnAll); actRow.appendChild(btnClr);
         panel.appendChild(actRow);
 
         cols.forEach(function(col) {
             var row = document.createElement('label');
-            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:6px;font-size:.78rem;color:#c8d8f0;';
-            row.onmouseover = function(){ row.style.background='rgba(126,169,255,0.1)'; };
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;border-radius:6px;font-size:.78rem;color:var(--text);';
+            row.onmouseover = function(){ row.style.background='var(--table-row-hover)'; };
             row.onmouseout  = function(){ row.style.background=''; };
             var cb = document.createElement('input');
             cb.type='checkbox'; cb.value=col;
-            cb.style.cssText='accent-color:#4364f7;width:14px;height:14px;cursor:pointer;';
+            cb.style.cssText='accent-color:var(--blue);width:14px;height:14px;cursor:pointer;';
             cb.checked = selectedArr.indexOf(col) >= 0;
             cb.addEventListener('change', function() {
                 if (cb.checked) { if (selectedArr.indexOf(col)<0) selectedArr.push(col); }
@@ -291,7 +315,7 @@ var VizMaster = (function () {
             var open = panel.style.display!=='none';
             document.querySelectorAll('.viz-cb-panel-inner').forEach(function(p){ p.style.display='none'; });
             panel.style.display = open ? 'none' : 'block';
-            btn.style.borderColor = open ? '' : '#4364f7';
+            btn.style.borderColor = open ? '' : 'var(--blue)';
         });
         document.addEventListener('click', function(){ panel.style.display='none'; btn.style.borderColor=''; });
         panel.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -473,19 +497,42 @@ var VizMaster = (function () {
     function setLoading(plotEl) {
         if (!plotEl) return;
         plotEl.innerHTML='<div class="viz-loading" style="display:flex;align-items:center;justify-content:center;height:100%;">'+
-            '<i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:#7EA9FF;"></i>'+
-            '<span style="font-size:.9rem;color:#7EA9FF;margin-left:10px;">Loading chart...</span></div>';
+            '<i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--blue);"></i>'+
+            '<span style="font-size:.9rem;color:var(--blue);margin-left:10px;">Loading chart...</span></div>';
     }
     function setError(plotEl, msg) {
         if (!plotEl) return;
         plotEl.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'+
             'height:100%;padding:24px;text-align:center;">'+
-            '<i class="fas fa-exclamation-circle" style="font-size:2rem;color:#ee5d50;margin-bottom:12px;"></i>'+
-            '<p style="color:#ee5d50;margin-bottom:14px;font-size:.9rem;">'+(msg||'Gagal memuat grafik')+'</p>'+
+            '<i class="fas fa-exclamation-circle" style="font-size:2rem;color:var(--red);margin-bottom:12px;"></i>'+
+            '<p style="color:var(--red);margin-bottom:14px;font-size:.9rem;">'+(msg||'Gagal memuat grafik')+'</p>'+
             '<button onclick="VizMaster.retry()" style="padding:7px 18px;border-radius:8px;'+
-            'border:1px solid rgba(126,169,255,.4);background:rgba(126,169,255,.12);'+
-            'color:#c8d8f0;cursor:pointer;font-family:inherit;font-size:.8rem;">'+
+            'border:1px solid var(--border);background:var(--surface-soft);'+
+            'color:var(--text);cursor:pointer;font-family:inherit;font-size:.8rem;">'+
             '<i class="fas fa-redo"></i> Coba Lagi</button></div>';
+    }
+
+    // ── Apply theme colors to Plotly layout ──────────────────────────────────
+    function _isLight() {
+        return document.body.getAttribute('data-theme') === 'light';
+    }
+    function _applyThemeToLayout(layout) {
+        if (_isLight()) {
+            layout.paper_bgcolor = '#ffffff';
+            layout.plot_bgcolor  = '#f8faff';
+            if (layout.font) layout.font.color = '#172554';
+            else layout.font = { color: '#172554' };
+            if (layout.hoverlabel) {
+                layout.hoverlabel.bgcolor = '#ffffff';
+                layout.hoverlabel.bordercolor = '#ccd8eb';
+                layout.hoverlabel.font = { color: '#172554' };
+            }
+            if (layout.legend) {
+                layout.legend.bgcolor = 'rgba(255,255,255,0.8)';
+                layout.legend.bordercolor = '#ccd8eb';
+                layout.legend.font = { color: '#172554' };
+            }
+        }
     }
 
     // ── Fetch and render ──────────────────────────────────────────────────────
@@ -548,15 +595,16 @@ var VizMaster = (function () {
                 renderKpis(data.kpis||[]);
                 state.chartType  = data.chart_type  || state.chartType;
                 state.chartIndex = data.chart_index != null ? data.chart_index : state.chartIndex;
-                updateLabel(); _syncChartTypeDropdown();
+                updateLabel(); _syncChartTypeDropdown(); updateChartDesc();
                 if (typeof Plotly==='undefined') { setError(plotEl,'Plotly.js belum dimuat.'); return; }
                 if (!data.chart) { setError(plotEl,'Data grafik kosong dari server.'); return; }
                 var chartDecoded = _decodeChartData(data.chart);
                 try { Plotly.purge(plotEl); } catch(e) {}
                 plotEl.innerHTML='';
                 var layout = Object.assign({}, chartDecoded.layout||{}, { autosize:true, margin:{l:54,r:24,t:56,b:52} });
+                _applyThemeToLayout(layout);
                 Plotly.newPlot(plotEl, chartDecoded.data||[], layout, {
-                    responsive:true, displayModeBar:true, displaylogo:false,
+                    responsive:true, displayModeBar:false, displaylogo:false,
                     modeBarButtonsToRemove:['lasso2d','select2d','autoScale2d'],
                     toImageButtonOptions:{format:'png',scale:2},
                 }).catch(function(err){ setError(plotEl,'Rendering error: '+err.message); });
@@ -612,6 +660,19 @@ var VizMaster = (function () {
         updateLabel();
         highlightSidebar(state.category);
         _buildChartTypeDropdown();
+
+        // Show/hide All Vars toggle based on category support
+        var toggleWrap = document.querySelector('.viz-toggle-all-wrap');
+        var toggleInput = document.getElementById('viz-toggle-all');
+        if (toggleWrap) {
+            var supported = (state.category === 'numerical' || state.category === 'categorical' || state.category === 'compare');
+            toggleWrap.style.display = supported ? '' : 'none';
+            if (!supported && toggleInput && toggleInput.checked) {
+                toggleInput.checked = false;
+                state.colX = defaultX(state.category);
+            }
+        }
+
         fetchAndRender();
     }
 
@@ -670,7 +731,98 @@ var VizMaster = (function () {
 
     function retry() { fetchAndRender(false); }
 
-    return { init:init, openCategory:openCategory, onTabShow:onTabShow, retry:retry };
+    // ── Navigation: Prev / Next ──────────────────────────────────────────
+    function navigatePrev() {
+        var types = CHART_TYPES[state.category] || [];
+        if (types.length <= 1) return;
+        var idx = types.indexOf(state.chartType);
+        idx = idx <= 0 ? types.length - 1 : idx - 1;
+        state.chartType = types[idx];
+        state.chartIndex = idx;
+        _syncChartTypeDropdown();
+        fetchAndRender();
+    }
+    function navigateNext() {
+        var types = CHART_TYPES[state.category] || [];
+        if (types.length <= 1) return;
+        var idx = types.indexOf(state.chartType);
+        idx = idx >= types.length - 1 ? 0 : idx + 1;
+        state.chartType = types[idx];
+        state.chartIndex = idx;
+        _syncChartTypeDropdown();
+        fetchAndRender();
+    }
+
+    // ── Chart Description ────────────────────────────────────────────────
+    function updateChartDesc() {
+        var el = $$('viz-chart-desc');
+        if (!el) return;
+        var desc = CHART_DESC[state.chartType];
+        if (desc) {
+            var label = CHART_LABELS[state.chartType] || state.chartType;
+            el.innerHTML = '<strong>' + label + '</strong> — ' + desc;
+            el.classList.add('visible');
+        } else {
+            el.classList.remove('visible');
+        }
+    }
+
+    // ── Fullscreen Toggle ────────────────────────────────────────────────
+    var _isFullscreen = false;
+    function toggleFullscreen() {
+        var page = document.querySelector('.viz-master-page');
+        var btn  = $$('viz-fullscreen-btn');
+        if (!page) return;
+        _isFullscreen = !_isFullscreen;
+        page.classList.toggle('viz-fullscreen', _isFullscreen);
+        if (btn) {
+            btn.classList.toggle('active', _isFullscreen);
+            var icon = btn.querySelector('i');
+            if (icon) {
+                icon.className = _isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+            }
+        }
+        // Resize chart after layout change
+        setTimeout(function () {
+            var plotEl = $$('viz-master-plot');
+            if (plotEl && plotEl._fullLayout && typeof Plotly !== 'undefined') {
+                Plotly.Plots.resize(plotEl);
+            }
+        }, 150);
+    }
+
+    // ── Export Chart (PNG / SVG) ─────────────────────────────────────────
+    function exportChart(format) {
+        var plotEl = $$('viz-master-plot');
+        if (!plotEl || typeof Plotly === 'undefined') return;
+        var label = CHART_LABELS[state.chartType] || state.chartType;
+        var filename = (meta.filename || 'chart').replace(/\.[^.]+$/, '') + '_' + label.replace(/\s+/g, '_');
+        Plotly.downloadImage(plotEl, {
+            format     : format,
+            width      : 1200,
+            height     : 680,
+            scale      : 2,
+            filename   : filename,
+        });
+    }
+
+    // ── Toggle All Variables ─────────────────────────────────────────────
+    function toggleAllVars(enabled) {
+        var supported = (state.category === 'numerical' || state.category === 'categorical' || state.category === 'compare');
+        if (enabled && supported) {
+            state.colX = '__all__';
+        } else {
+            state.colX = defaultX(state.category);
+        }
+        fetchAndRender();
+    }
+
+    return {
+        init: init, openCategory: openCategory, onTabShow: onTabShow, retry: retry,
+        navigatePrev: navigatePrev, navigateNext: navigateNext,
+        toggleFullscreen: toggleFullscreen, exportChart: exportChart,
+        toggleAllVars: toggleAllVars,
+    };
 })();
 
 /* Global helper dipanggil dari dashboardOverview.js dan link sidebar */

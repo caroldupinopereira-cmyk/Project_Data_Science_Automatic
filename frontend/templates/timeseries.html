@@ -307,21 +307,27 @@
     </div>
 
     <div class="ts-nav-tabs">
-        <button class="ts-nav-tab-btn active" data-chart-key="ts_line">Line Chart</button>
+        <button class="ts-nav-tab-btn active" data-chart-key="ts_combined">Combined</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_line">Line Chart</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_trend">Trend</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_ma">Moving Avg</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_rolling">Rolling Mean</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_forecast">Forecast</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_acf_pacf">ACF/PACF</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_multi_line">Multi-Line</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_correlation">Correlation</button>
+        <button class="ts-nav-tab-btn" data-chart-key="ts_subplots">Subplots</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_summary">Summary</button>
         <button class="ts-nav-tab-btn" data-chart-key="ts_overview">Overview</button>
     </div>
+
+    <div id="ts-insights-container" style="margin-bottom:20px;"></div>
 
     <div class="ts-chart-card">
         <div class="card-header-clean">
             <h4>
                 <i class="fas fa-chart-line text-green"></i>
-                Time Series Analytics &mdash; <span id="ts-active-tab-label">Line Chart</span>
+                Time Series Analytics &mdash; <span id="ts-active-tab-label">Combined</span>
                 <span class="chart-badge">Temporal</span>
             </h4>
         </div>
@@ -331,7 +337,7 @@
 
 <script>
 let timeSeriesCache = null;
-let currentActiveTabKey = 'ts_line';
+let currentActiveTabKey = 'ts_combined';
 
 function updateWholeTimeSeriesWorkspace() {
     const selectedCat = document.getElementById('ts-dropdown-categorical').value;
@@ -354,10 +360,21 @@ function updateWholeTimeSeriesWorkspace() {
                 document.getElementById('kpi-trend-dir').innerText = data.kpis.trend_dir;
                 document.getElementById('kpi-pct-change').innerText = data.kpis.pct_change;
 
+                renderInsights(data.insights);
+
+                document.querySelectorAll('.ts-nav-tab-btn').forEach(function(btn) {
+                    var key = btn.getAttribute('data-chart-key');
+                    if (data.plots && data.plots[key]) {
+                        btn.style.display = '';
+                    } else {
+                        btn.style.display = 'none';
+                    }
+                });
+
                 renderSelectedTabPlot();
             }
         })
-        .catch(err => console.error("Critical channel pipeline failure:", err));
+        .catch(err => console.error("Timeseries API error:", err));
 }
 
 function renderSelectedTabPlot() {
@@ -375,7 +392,8 @@ function renderSelectedTabPlot() {
         return;
     }
 
-    Plotly.newPlot('timeseries-chart-container', chartPayload.data, chartPayload.layout, {responsive: true, displayModeBar: false, displaylogo: false});
+    Plotly.newPlot('timeseries-chart-container', chartPayload.data, 
+chartPayload.layout, {responsive: true, displayModeBar: false, displaylogo: false});
 }
 
 function renderTsSummaryStandalone(stats) {
@@ -425,6 +443,27 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('ts-dropdown-granularity').addEventListener('change', updateWholeTimeSeriesWorkspace);
     setTimeout(updateWholeTimeSeriesWorkspace, 200);
 });
+
+function renderInsights(insights) {
+    if (!insights || !insights.length) return;
+    var container = document.getElementById('ts-insights-container');
+    if (!container) return;
+    var insightsHtml = '<div style="padding:16px;background:var(--card-bg);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;">';
+    insightsHtml += '<h3 style="margin-bottom:12px;color:var(--text);font-size:1.1rem;"><i class="fas fa-lightbulb" style="color:var(--green);"></i> Time Series Insights</h3>';
+    insights.forEach(function(item) {
+        var borderColor = item.type === 'primary' ? 'var(--blue)' : 
+                         item.type === 'success' ? 'var(--green)' : 
+                         item.type === 'warning' ? 'var(--orange)' : 
+                         item.type === 'info' ? 'var(--purple)' : 'var(--muted)';
+        insightsHtml += '<div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:14px 16px;margin-bottom:10px;border-left:3px solid ' + borderColor + ';">';
+        insightsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+        insightsHtml += '<i class="fas ' + (item.icon || 'fa-info-circle') + '" style="color:' + borderColor + ';font-size:0.85rem;"></i>';
+        insightsHtml += '<span style="font-weight:700;font-size:0.9rem;color:var(--text);">' + (item.title || '') + '</span></div>';
+        insightsHtml += '<div style="font-size:0.83rem;color:var(--muted);line-height:1.5;">' + (item.desc || '') + '</div></div>';
+    });
+    insightsHtml += '</div>';
+    container.innerHTML = insightsHtml;
+}
 </script>
 
 {% endblock %}
