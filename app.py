@@ -2,6 +2,9 @@ import os
 import datetime
 import functools
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.utils import secure_filename
 import pandas as pd
@@ -30,8 +33,9 @@ app = Flask(__name__, template_folder='frontend/templates', static_folder='front
 app.secret_key = 'super_secret_key_week_15_itsb'
 
 # ─── Register Auth Blueprint ──────────────────────────────────────────────
-from backend.auth import auth_bp
+from backend.auth import auth_bp, oauth
 app.register_blueprint(auth_bp)
+oauth.init_app(app)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 

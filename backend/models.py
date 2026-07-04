@@ -55,6 +55,37 @@ class UserModel:
         self._write(users)
         return user, None
 
+    def create_user_oauth(self, username, email, provider, provider_id):
+        """Create a new user from OAuth provider."""
+        users = self._read()
+        for u in users:
+            if u['email'] == email:
+                return None, 'Email already registered'
+        
+        # Ensure unique username
+        base_username = username
+        counter = 1
+        while any(u['username'] == username for u in users):
+            username = f"{base_username}_{counter}"
+            counter += 1
+        
+        user = {
+            'id': str(uuid.uuid4()),
+            'username': username,
+            'email': email,
+            'password': None,  # No password for OAuth users
+            'oauth_provider': provider,
+            'oauth_provider_id': provider_id,
+            'is_first_login': True,
+            'created_at': datetime.utcnow().isoformat(),
+            'remember_token': None,
+            'reset_token': None,
+            'reset_token_expires': None,
+        }
+        users.append(user)
+        self._write(users)
+        return user, None
+
     def authenticate(self, login, password):
         users = self._read()
         for u in users:

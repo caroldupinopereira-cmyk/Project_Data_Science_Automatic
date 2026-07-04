@@ -1,12 +1,40 @@
 import time
 import secrets
 import functools
+import os
 from collections import defaultdict
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, make_response
+from authlib.integrations.flask_client import OAuth
 from backend.models import user_model
 from backend.user_data import create_user_folder
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth', template_folder='../frontend/templates')
+
+# ─── OAuth Setup ───────────────────────────────────────────────────────────
+oauth = OAuth()
+
+google_client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+microsoft_client_id = os.environ.get('MICROSOFT_CLIENT_ID', '')
+microsoft_client_secret = os.environ.get('MICROSOFT_CLIENT_SECRET', '')
+
+if google_client_id and google_client_secret:
+    oauth.register(
+        name='google',
+        client_id=google_client_id,
+        client_secret=google_client_secret,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+    )
+
+if microsoft_client_id and microsoft_client_secret:
+    oauth.register(
+        name='microsoft',
+        client_id=microsoft_client_id,
+        client_secret=microsoft_client_secret,
+        server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+    )
 
 
 # ─── Rate Limiting (in-memory) ─────────────────────────────────────────────
@@ -330,3 +358,119 @@ def reset_password_page(token):
         return redirect(url_for('auth.login'))
 
     return render_template('reset_password.html', token=token, csrf_token=generate_csrf_token())
+
+
+# ─── Social Login ──────────────────────────────────────────────────────────
+
+@auth_bp.route('/login/google')
+def login_google():
+    """Redirect to Google OAuth."""
+    if not hasattr(oauth, 'google'):
+        flash('Google OAuth belum dikonfigurasi. Silakan masuk dengan akun lokal.', 'info')
+        return redirect(url_for('auth.login'))
+    
+    redirect_uri = request.host_url.rstrip('/') + url_for('auth.google_callback')
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/login/google/callback')
+def google_callback():
+    """Handle Google OAuth callback."""
+    if not hasattr(oauth, 'google'):
+        flash('Google OAuth belum dikonfigurasi.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    try:
+        token = oauth.google.authorize_access_token()
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            flash('Gagal mendapatkan informasi dari Google.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        email = user_info.get('email', '')
+        name = user_info.get('name', '')
+        google_id = user_info.get('sub', '')
+        
+        # Check if user exists
+        user = user_model.get_by_email(email)
+        
+        if not user:
+            # Create new user
+            username = name.replace(' ', '_').lower() or email.split('@')[0]
+            user, err = user_model.create_user_oauth(username, email, 'google', google_id)
+            if err:
+                flash(f'Gagal membuat akun: {err}', 'error')
+                return redirect(url_for('auth.login'))
+            create_user_folder(user['id'], user['username'])
+        
+        # Login user
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['email'] = user['email']
+        session['is_first_login'] = user.get('is_first_login', False)
+        session['profile_pic'] = user.get('profile_pic', '')
+        
+        upload_url = url_for('upload_file', welcome='new' if user.get('is_first_login') else 'back', u=user['username'])
+        return redirect(upload_url)
+        
+    except Exception as e:
+        flash(f'Error login Google: {str(e)}', 'error')
+        return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/login/microsoft')
+def login_microsoft():
+    """Redirect to Microsoft OAuth."""
+    if not hasattr(oauth, 'microsoft'):
+        flash('Microsoft OAuth belum dikonfigurasi. Silakan masuk dengan akun lokal.', 'info')
+        return redirect(url_for('auth.login'))
+    
+    redirect_uri = request.host_url.rstrip('/') + url_for('auth.microsoft_callback')
+    return oauth.microsoft.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/login/microsoft/callback')
+def microsoft_callback():
+    """Handle Microsoft OAuth callback."""
+    if not hasattr(oauth, 'microsoft'):
+        flash('Microsoft OAuth belum dikonfigurasi.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    try:
+        token = oauth.microsoft.authorize_access_token()
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            flash('Gagal mendapatkan informasi dari Microsoft.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        email = user_info.get('email', '')
+        name = user_info.get('name', '')
+        microsoft_id = user_info.get('sub', '')
+        
+        # Check if user exists
+        user = user_model.get_by_email(email)
+        
+        if not user:
+            # Create new user
+            username = name.replace(' ', '_').lower() or email.split('@')[0]
+            user, err = user_model.create_user_oauth(username, email, 'microsoft', microsoft_id)
+            if err:
+                flash(f'Gagal membuat akun: {err}', 'error')
+                return redirect(url_for('auth.login'))
+            create_user_folder(user['id'], user['username'])
+        
+        # Login user
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['email'] = user['email']
+        session['is_first_login'] = user.get('is_first_login', False)
+        session['profile_pic'] = user.get('profile_pic', '')
+        
+        upload_url = url_for('upload_file', welcome='new' if user.get('is_first_login') else 'back', u=user['username'])
+        return redirect(upload_url)
+        
+    except Exception as e:
+        flash(f'Error login Microsoft: {str(e)}', 'error')
+        return redirect(url_for('auth.login'))

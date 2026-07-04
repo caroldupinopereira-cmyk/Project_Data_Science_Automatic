@@ -674,6 +674,67 @@ html, body {
 
 .switch-link:hover { color: var(--accent-blue); text-decoration: underline; }
 
+/* ─── Social Login ─── */
+.social-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0 14px;
+}
+
+.social-divider::before,
+.social-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.social-divider span {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.social-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.btn-social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--input-radius);
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.btn-social:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.btn-social:active {
+    transform: scale(0.97);
+}
+
+.btn-social svg {
+    flex-shrink: 0;
+}
+
 /* ─── Trust Badges ─── */
 .trust-badges {
     display: flex;
@@ -747,6 +808,7 @@ html, body {
 .toast.show { transform: translateX(0); }
 .toast.toast-success { background: rgba(16, 185, 129, 0.95); }
 .toast.toast-error { background: rgba(239, 68, 68, 0.95); }
+.toast.toast-info { background: rgba(59, 130, 246, 0.95); }
 .toast i { font-size: 1rem; flex-shrink: 0; }
 
 /* ─── Flash ─── */
