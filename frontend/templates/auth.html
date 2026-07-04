@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DS Generator — Autentikasi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body>
+    <!-- 3D Background Canvas -->
+    <canvas id="premium-3d-data-canvas"></canvas>
+    <div class="overlay"></div>
+
+    <!-- Top Bar: Language & Theme Toggle -->
+    <div class="top-bar">
+        <button class="top-btn" id="themeToggle" title="Toggle Theme">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <button class="top-btn" id="langToggle" title="Toggle Language">
+            <span id="langLabel" style="font-size:0.72rem;font-weight:700;">ID</span>
+        </button>
+    </div>
+
+    <!-- Main Auth Wrapper -->
+    <div class="auth-wrapper">
+        <!-- Left: Auth Card -->
+        <div class="auth-card" id="authCard">
+            <!-- Logo -->
+            <div class="auth-logo">
+                <div class="logo-icon"><i class="fas fa-chart-simple"></i></div>
+                <div class="logo-title">DS Generator Platform</div>
+                <div class="logo-sub">Analisis Statistik &bull; Platform Auto-EDA</div>
+            </div>
+
+            <!-- Tab Toggle -->
+            <div class="toggle-pill">
+                <button class="pill-btn active" data-tab="signin" id="tabSignin">Masuk</button>
+                <button class="pill-btn" data-tab="register" id="tabRegister">Daftar</button>
+            </div>
+
+            <!-- Form Wrapper -->
+            <div class="form-wrapper">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}" style="
+                        padding: 10px 14px;
+                        border-radius: 10px;
+                        font-size: 0.82rem;
+                        margin-bottom: 12px;
+                        text-align: center;
+                        {% if category == 'error' %}background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444;
+                        {% elif category == 'success' %}background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #10b981;
+                        {% else %}background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.2); color: #a78bfa;{% endif %}
+                    ">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <!-- Sign In Panel -->
+                <div class="form-panel active" id="panelSignin">
+                    <form id="formSignin" method="POST" action="{{ url_for('auth.login') }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+                        <div class="input-group">
+                            <input class="auth-input" type="text" id="loginUsername" name="login" placeholder="Nama Pengguna" required>
+                            <i class="fas fa-user input-icon"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input class="auth-input" type="password" id="loginPassword" name="password" placeholder="Kata Sandi" required>
+                            <i class="fas fa-lock input-icon"></i>
+                            <button type="button" class="toggle-pass"><i class="far fa-eye"></i></button>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="rememberMe">
+                                <span class="check-text">Ingat saya</span>
+                            </label>
+                            <a href="{{ url_for('auth.forgot_password') }}" class="forgot-link">Lupa kata sandi?</a>
+                        </div>
+
+                        <button type="submit" class="btn-submit" id="btnSignin">
+                            <span class="btn-text">Masuk</span>
+                            <i class="fas fa-arrow-right btn-icon"></i>
+                            <div class="spinner hidden"></div>
+                        </button>
+                    </form>
+
+                    <div class="switch-text">
+                        Belum punya akun? <a href="#" class="switch-link" data-tab="register">Daftar</a>
+                    </div>
+                </div>
+
+                <!-- Register Panel -->
+                <div class="form-panel" id="panelRegister">
+                    <form id="formRegister" method="POST" action="{{ url_for('auth.register') }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+                        <div class="input-group">
+                            <input class="auth-input" type="text" id="regUsername" name="username" placeholder="Nama Pengguna" required>
+                            <i class="fas fa-user input-icon"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input class="auth-input" type="email" id="regEmail" name="email" placeholder="Masukkan email Anda" required>
+                            <i class="fas fa-envelope input-icon"></i>
+                        </div>
+
+                        <div class="input-group">
+                            <input class="auth-input" type="password" id="regPassword" name="password" placeholder="Kata Sandi" required minlength="8">
+                            <i class="fas fa-lock input-icon"></i>
+                            <button type="button" class="toggle-pass"><i class="far fa-eye"></i></button>
+                        </div>
+
+                        <!-- Password Strength -->
+                        <div class="password-strength hidden" id="strengthBar">
+                            <div class="strength-track">
+                                <div class="strength-fill" id="strengthFill"></div>
+                            </div>
+                            <span class="strength-label" id="strengthLabel"></span>
+                        </div>
+
+                        <div class="input-group">
+                            <input class="auth-input" type="password" id="regConfirm" name="confirm_password" placeholder="Konfirmasi kata sandi" required>
+                            <i class="fas fa-lock input-icon"></i>
+                            <span class="confirm-status" id="confirmStatus"></span>
+                        </div>
+
+                        <button type="submit" class="btn-submit" id="btnRegister">
+                            <span class="btn-text">Buat Akun</span>
+                            <i class="fas fa-arrow-right btn-icon"></i>
+                            <div class="spinner hidden"></div>
+                        </button>
+                    </form>
+
+                    <div class="switch-text">
+                        Sudah punya akun? <a href="#" class="switch-link" data-tab="signin">Masuk</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trust Badges -->
+            <div class="trust-badges">
+                <span class="trust-item"><i class="fas fa-shield-halved"></i> Terenkripsi</span>
+                <span class="trust-dot"></span>
+                <span class="trust-item"><i class="fas fa-lock"></i> Aman</span>
+                <span class="trust-dot"></span>
+                <span class="trust-item"><i class="fas fa-database"></i> No SQL</span>
+            </div>
+
+            <!-- Footer -->
+            <div class="auth-footer">
+                The Architects — ITSB
+            </div>
+        </div>
+
+        <!-- Right: Brand Panel -->
+        <div class="brand-panel">
+            <div class="brand-content">
+                <div class="brand-badge">
+                    <i class="fas fa-chart-simple"></i>
+                    DS Generator
+                </div>
+                <h2 class="brand-headline">
+                    Analisis Data<br>
+                    <span class="brand-gradient">Lebih Cepat &amp; Efisien</span>
+                </h2>
+                <p class="brand-desc">
+                    Unggah dataset Anda, biarkan DS Generator yang menangani sisanya. Dari data mentah hingga wawasan bernilai dalam hitungan detik.
+                </p>
+
+                <!-- Feature Cards -->
+                <div class="brand-features">
+                    <div class="brand-feature-card">
+                        <div class="bfc-icon bfc-purple"><i class="fas fa-broom"></i></div>
+                        <div>
+                            <h4>Pembersihan Data Otomatis</h4>
+                            <p>Deteksi pencilan, nilai kosong, &amp; duplikat secara otomatis</p>
+                        </div>
+                    </div>
+                    <div class="brand-feature-card">
+                        <div class="bfc-icon bfc-blue"><i class="fas fa-chart-pie"></i></div>
+                        <div>
+                            <h4>Dashboard Interaktif</h4>
+                            <p>Visualisasi interaktif dengan berbagai jenis grafik</p>
+                        </div>
+                    </div>
+                    <div class="brand-feature-card">
+                        <div class="bfc-icon bfc-green"><i class="fas fa-file-pdf"></i></div>
+                        <div>
+                            <h4>Pelaporan Otomatis</h4>
+                            <p>Hasilkan laporan PDF &amp; HTML secara otomatis</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="brand-stats">
+                    <div class="brand-stat">
+                        <span class="stat-num">100%</span>
+                        <span class="stat-label">Gratis</span>
+                    </div>
+                    <div class="brand-stat">
+                        <span class="stat-num">3+</span>
+                        <span class="stat-label">Format File</span>
+                    </div>
+                    <div class="brand-stat">
+                        <span class="stat-num">Auto</span>
+                        <span class="stat-label">Auto-EDA</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decorations -->
+            <div class="brand-deco brand-deco-1"></div>
+            <div class="brand-deco brand-deco-2"></div>
+            <div class="brand-deco brand-deco-3"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

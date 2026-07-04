@@ -187,42 +187,6 @@ html, body {
     margin-bottom: 14px;
 }
 
-/* ─── Robot Scene ─── */
-.robot-scene {
-    position: relative;
-    width: 100%;
-    height: 170px;
-    margin: 2px 0 12px;
-    border-radius: 12px;
-    overflow: hidden;
-    background: radial-gradient(ellipse at 50% 60%, rgba(124, 58, 237, 0.06) 0%, transparent 70%);
-}
-
-.robot-scene canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-
-.robot-glow {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 140px;
-    height: 50px;
-    background: radial-gradient(ellipse, rgba(124, 58, 237, 0.35) 0%, rgba(37, 99, 235, 0.15) 40%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-    filter: blur(12px);
-    animation: pulseGlow 3s ease-in-out infinite;
-}
-
-@keyframes pulseGlow {
-    0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.15); }
-}
-
 /* ─── Features ─── */
 .brand-features {
     display: flex;
@@ -346,6 +310,7 @@ html, body {
 /* ─── Logo ─── */
 .auth-logo {
     margin-bottom: 18px;
+    text-align: center;
 }
 
 .logo-icon {
@@ -379,7 +344,8 @@ html, body {
 
 /* ─── Toggle ─── */
 .toggle-pill {
-    display: inline-flex;
+    display: flex;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 50px;
     padding: 3px;

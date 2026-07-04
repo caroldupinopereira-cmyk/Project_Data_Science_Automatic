@@ -3,7 +3,7 @@
 window.addEventListener('load', function () {
     initRobot();
 });
-yty
+
 function initRobot() {
     const canvas = document.getElementById('robotCanvas');
     if (!canvas) { console.error('[robot] Canvas tidak ditemukan!'); return; }
@@ -367,4 +367,3 @@ function initRobot() {
         if (composer) composer.setSize(s.w, s.h);
     });
 }
-uk

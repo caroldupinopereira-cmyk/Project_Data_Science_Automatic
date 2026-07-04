@@ -1,6 +1,5 @@
 import os
 import datetime
-import json
 import functools
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
@@ -24,9 +23,15 @@ from backend.cleaning_engine import (
     get_quality_report, detect_data_status,
 )
 from backend.data_sanitizer import sanitize_df_numeric_cols
+from backend.ai_settings import get_ai_settings
+from backend.interpretation_generator import generate_interpretation, build_dataset_context_text
 
 app = Flask(__name__, template_folder='frontend/templates', static_folder='frontend/static')
 app.secret_key = 'super_secret_key_week_15_itsb'
+
+# ─── Register Auth Blueprint ──────────────────────────────────────────────
+from backend.auth import auth_bp
+app.register_blueprint(auth_bp)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
@@ -40,14 +45,26 @@ def _user_id_from_name(name):
 
 
 def current_user():
+    # Sistem 1: Auth blueprint (user_id + username + email)
+    user_id = session.get('user_id')
+    if user_id:
+        return {
+            'id': user_id,
+            'name': session.get('username', 'User'),
+            'email': session.get('email', ''),
+            'role': 'Data Analyst',
+        }
+
+    # Sistem 2: Simple login (session['user'] dict)
     user = session.get('user')
-    if not user:
-        return None
-    return {
-        'id': user.get('id') or _user_id_from_name(user.get('name')),
-        'name': user.get('name') or 'User',
-        'role': user.get('role') or 'Data Analyst',
-    }
+    if user:
+        return {
+            'id': user.get('id') or _user_id_from_name(user.get('name')),
+            'name': user.get('name') or 'User',
+            'role': user.get('role') or 'Data Analyst',
+        }
+
+    return None
 
 
 def login_required(fn):
@@ -55,7 +72,7 @@ def login_required(fn):
     def wrapper(*args, **kwargs):
         if not current_user():
             flash('Silakan login terlebih dahulu.', 'info')
-            return redirect(url_for('login', next=request.path))
+            return redirect(url_for('auth.login', next=request.path))
         return fn(*args, **kwargs)
     return wrapper
 
@@ -67,7 +84,11 @@ def inject_current_user():
 
 @app.before_request
 def require_login_for_private_routes():
-    if request.endpoint in ('index', 'login', 'logout', 'static'):
+    if request.endpoint in ('index', 'login', 'logout', 'static', 'landing'):
+        return None
+
+    # Allow all auth blueprint routes
+    if request.endpoint and request.endpoint.startswith('auth.'):
         return None
 
     private_prefixes = ('/upload', '/dashboard', '/api/')
@@ -81,7 +102,7 @@ def require_login_for_private_routes():
         return jsonify({'ok': False, 'error': 'Silakan login terlebih dahulu.'}), 401
 
     flash('Silakan login terlebih dahulu.', 'info')
-    return redirect(url_for('login', next=request.path))
+    return redirect(url_for('auth.login', next=request.path))
 
 
 def _user_upload_dir():
@@ -89,8 +110,20 @@ def _user_upload_dir():
     if not user:
         return None
 
+    user_id = user['id']
+    user_name = user.get('name', 'user')
+
+    # Sistem 1: Auth blueprint user → data/users/<username>_<short_id>/uploaded/
+    if session.get('user_id'):
+        from backend.user_data import get_upload_dir
+        upload_dir = get_upload_dir(user_id, user_name)
+        if upload_dir:
+            os.makedirs(upload_dir, exist_ok=True)
+            return upload_dir
+
+    # Sistem 2: Simple login → uploads/<user_id>/
     base_dir = os.path.abspath(app.config['UPLOAD_FOLDER'])
-    user_dir = os.path.abspath(os.path.join(base_dir, user['id']))
+    user_dir = os.path.abspath(os.path.join(base_dir, user_id))
     if not user_dir.startswith(base_dir):
         return None
     os.makedirs(user_dir, exist_ok=True)
@@ -149,7 +182,22 @@ def _get_or_init_session(filename):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('landing.html')
+
+
+@app.route('/landing')
+def landing():
+    return render_template('landing.html')
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', code=404, message='Halaman tidak ditemukan.'), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template('error.html', code=500, message='Terjadi kesalahan server internal.'), 500
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -182,7 +230,13 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # Clear both auth systems
     session.pop('user', None)
+    session.pop('user_id', None)
+    session.pop('username', None)
+    session.pop('email', None)
+    session.pop('is_first_login', None)
+    session.pop('profile_pic', None)
     flash('Anda berhasil logout.', 'success')
     return redirect(url_for('index'))
 
@@ -995,37 +1049,87 @@ def api_viz_chart(filename):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# AI INTERPRETATION ENDPOINT
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/interpretation/<filename>', methods=['POST'])
+def api_interpretation(filename):
+    """Generate AI-powered dataset interpretation."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({'ok': False, 'error': 'Nama file tidak valid.'}), 400
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return jsonify({'ok': False, 'error': 'Dataset tidak ditemukan.'}), 404
+
+    lang = request.args.get('lang', 'en')
+    ai_settings = get_ai_settings(session.get('user_id', 'default'))
+
+    if not ai_settings or not ai_settings.get('api_key'):
+        return jsonify({'ok': False, 'error': 'no_api_key', 'message': 'AI API key belum dikonfigurasi.'}), 200
+
+    try:
+        result = generate_interpretation(ctx, lang, ai_settings)
+        return jsonify({'ok': True, 'data': result})
+    except Exception as e:
+        error_msg = str(e)
+        if 'quota' in error_msg.lower() or '429' in error_msg:
+            return jsonify({
+                'ok': False,
+                'error': 'quota_exceeded',
+                'message': error_msg,
+                'reset_in_seconds': getattr(e, 'reset_in_seconds', None),
+                'keys_exhausted': getattr(e, 'keys_exhausted', None),
+                'total_keys': getattr(e, 'total_keys', None),
+            }), 200
+        return jsonify({'ok': False, 'error': error_msg}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # AI CHAT ENDPOINT
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route('/api/ai-chat', methods=['POST'])
 def ai_chat():
-    """Proxy-free AI endpoint — pakai Anthropic API langsung dari server."""
+    """Multi-provider AI chat endpoint via ai_client."""
     try:
-        import anthropic
-        data     = request.get_json()
+        data = request.get_json()
         user_msg = data.get('message', '')
-        context  = data.get('context', '')
+        context = data.get('context', '')
+        filename = data.get('filename', '')
 
-        client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY', ''))
+        ai_settings = get_ai_settings(session.get('user_id', 'default'))
+        if not ai_settings or not ai_settings.get('api_key'):
+            return jsonify({'reply': 'AI API key belum dikonfigurasi.'}), 500
+
         system_prompt = (
             "Kamu adalah asisten analisis data cerdas bernama DataBot untuk aplikasi "
             "DS Generator Kelompok 2. "
             "Jawab dengan bahasa yang jelas, ringkas, dan informatif. "
             f"Konteks dataset saat ini: {context}"
         )
-        message = client.messages.create(
-            model      = "claude-sonnet-4-20250514",
-            max_tokens = 1024,
-            system     = system_prompt,
-            messages   = [{"role": "user", "content": user_msg}],
-        )
-        return jsonify({'reply': message.content[0].text})
 
-    except ImportError:
-        return jsonify({
-            'reply': 'Library anthropic belum terpasang. Jalankan: pip install anthropic'
-        }), 500
+        from backend.ai_client import call_ai, AIClientError, QuotaExceededError
+        try:
+            reply = call_ai(
+                ai_settings['provider'],
+                ai_settings['api_key'],
+                ai_settings.get('model', ''),
+                system_prompt,
+                user_msg,
+                api_keys=ai_settings.get('api_keys', []),
+            )
+            return jsonify({'reply': reply})
+        except QuotaExceededError as e:
+            return jsonify({
+                'reply': str(e),
+                'error': 'quota_exceeded',
+                'reset_in_seconds': e.reset_in_seconds,
+            }), 200
+        except AIClientError as e:
+            return jsonify({'reply': f'Error: {str(e)}'}), 500
+
     except Exception as e:
         return jsonify({'reply': f'Error: {str(e)}'}), 500
 
