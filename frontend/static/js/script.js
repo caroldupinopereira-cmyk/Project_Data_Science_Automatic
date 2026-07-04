@@ -460,43 +460,52 @@ function initLanguageSelector() {
 /* ─── DATATABLES ─────────────────────────────────────────────── */
 function initDataTables() {
     if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') return;
+    /* Only initialize on tables inside tab-content that have thead and tbody
+       Skip tables inside hidden tabs (display:none) — they can't be measured.
+       DataTables will be re-initialized via initDataTables() when their tab is shown. */
     $('table.data-table').each(function () {
-        if (!$.fn.DataTable.isDataTable(this)) {
-            $(this).DataTable({
-                pageLength : 10,
-                lengthMenu: [
-                  [10, 25, 50, 100, -1],
-                  [10, 25, 50, 100, "All"]
-                ],
-                responsive : false,
-                scrollX    : true,
-                dom        : '<"dt-top"Bf>rt<"dt-bot"lip>',
-                buttons    : [
-                    { extend:'csvHtml5',   text:'<i class="fas fa-file-csv"></i> CSV',   className:'dt-btn' },
-                    { extend:'excelHtml5', text:'<i class="fas fa-file-excel"></i> Excel', className:'dt-btn' },
-                    { extend:'pdfHtml5',   text:'<i class="fas fa-file-pdf"></i> PDF',   className:'dt-btn',
-                      orientation:'landscape', pageSize:'A4' },
-                ],
-                autoWidth  : false,
-                deferRender: true,
-                drawCallback: function () {
-                    this.api().columns.adjust();
-                },
-                language: {
-                    search: '<i class="fas fa-search"></i>',
-                    searchPlaceholder: 'Filter data...',
-                    lengthMenu: 'Show _MENU_ rows',
-                    info: 'Showing _START_–_END_ of _TOTAL_ entries',
-                    paginate: { previous:'‹', next:'›' },
-                },
-            });
-        }
+        if ($.fn.DataTable.isDataTable(this)) return;
+        /* Skip if parent tab is hidden */
+        var tab = this.closest('.tab-content');
+        if (tab && (tab.style.display === 'none' || !tab.classList.contains('active-tab'))) return;
+        /* Skip if table has no visible rows (empty or not yet rendered) */
+        var tbody = this.querySelector('tbody');
+        if (!tbody || tbody.rows.length === 0) return;
+        $(this).DataTable({
+            pageLength : 10,
+            lengthMenu: [
+              [10, 25, 50, 100, -1],
+              [10, 25, 50, 100, "All"]
+            ],
+            responsive : false,
+            scrollX    : true,
+            dom        : '<"dt-top"Bf>rt<"dt-bot"lip>',
+            buttons    : [
+                { extend:'csvHtml5',   text:'<i class="fas fa-file-csv"></i> CSV',   className:'dt-btn' },
+                { extend:'excelHtml5', text:'<i class="fas fa-file-excel"></i> Excel', className:'dt-btn' },
+                { extend:'pdfHtml5',   text:'<i class="fas fa-file-pdf"></i> PDF',   className:'dt-btn',
+                  orientation:'landscape', pageSize:'A4' },
+            ],
+            autoWidth  : false,
+            deferRender: true,
+            drawCallback: function () {
+                this.api().columns.adjust();
+            },
+            language: {
+                search: '<i class="fas fa-search"></i>',
+                searchPlaceholder: 'Filter data...',
+                lengthMenu: 'Show _MENU_ rows',
+                info: 'Showing _START_–_END_ of _TOTAL_ entries',
+                paginate: { previous:'‹', next:'›' },
+            },
+        });
     });
     adjustResponsiveTables();
 }
 
 function adjustResponsiveTables() {
-    document.querySelectorAll('.table-scroll-wrapper table, table.data-table, table.simple-table').forEach(function (table) {
+    /* Only adjust tables that are NOT managed by DataTables */
+    document.querySelectorAll('.table-scroll-wrapper table:not(.dataTable), table.simple-table, .ov-stats-table').forEach(function (table) {
         table.style.tableLayout = 'auto';
         table.style.width = 'max-content';
         table.style.minWidth = '100%';
@@ -506,6 +515,109 @@ function adjustResponsiveTables() {
         $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
     }
 }
+
+/* ─── GENERIC TABLE PAGINATION (Previous / Next) ─────────────── */
+var TablePagination = (function () {
+    var _instances = {};   /* tableId → { page, perPage, totalPages } */
+    var DEFAULT_PER_PAGE = 10;
+
+    function _tableId(table) {
+        return table.id || ('_tp_' + (Math.random().toString(36).slice(2, 9)));
+    }
+
+    function _getTbodyRows(table) {
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return [];
+        return Array.from(tbody.querySelectorAll('tr'));
+    }
+
+    function _renderPaginationFooter(table) {
+        var id = _tableId(table);
+        var state = _instances[id];
+        if (!state) return;
+
+        var rows = _getTbodyRows(table);
+        var totalRows = rows.length;
+        state.totalPages = Math.max(1, Math.ceil(totalRows / state.perPage));
+        if (state.page > state.totalPages) state.page = state.totalPages;
+
+        /* Show/hide rows based on current page */
+        var start = (state.page - 1) * state.perPage;
+        var end   = start + state.perPage;
+        rows.forEach(function (row, i) {
+            row.style.display = (i >= start && i < end) ? '' : 'none';
+        });
+
+        /* Find or create footer container */
+        var wrapper = table.closest('.table-scroll-wrapper') || table.parentElement;
+        var footerId = 'tp-footer-' + id;
+        var footer = document.getElementById(footerId);
+        if (!footer) {
+            footer = document.createElement('div');
+            footer.id = footerId;
+            footer.className = 'tp-pagination-footer';
+            /* Insert footer after the table's direct parent (wrapper) */
+            if (wrapper && wrapper.parentElement) {
+                wrapper.parentElement.insertBefore(footer, wrapper.nextSibling);
+            } else {
+                table.parentElement.insertBefore(footer, table.nextSibling);
+            }
+        }
+
+        var startRow = totalRows === 0 ? 0 : start + 1;
+        var endRow   = Math.min(end, totalRows);
+
+        footer.innerHTML =
+            '<button class="tp-btn tp-prev" data-dir="prev"' + (state.page <= 1 ? ' disabled' : '') + '>' +
+                '<i class="fas fa-chevron-left"></i> Previous' +
+            '</button>' +
+            '<span class="tp-info">Showing ' + startRow + '–' + endRow + ' of ' + totalRows + '</span>' +
+            '<button class="tp-btn tp-next" data-dir="next"' + (state.page >= state.totalPages ? ' disabled' : '') + '>' +
+                'Next <i class="fas fa-chevron-right"></i>' +
+            '</button>';
+
+        /* Bind click events */
+        footer.querySelector('.tp-prev').addEventListener('click', function () {
+            if (state.page > 1) { state.page--; _renderPaginationFooter(table); }
+        });
+        footer.querySelector('.tp-next').addEventListener('click', function () {
+            if (state.page < state.totalPages) { state.page++; _renderPaginationFooter(table); }
+        });
+    }
+
+    function init(table, perPage) {
+        if (!table || table.tagName !== 'TABLE') return;
+        /* Skip if already managed by DataTables */
+        if (table.classList.contains('dataTable')) return;
+        /* Skip if no tbody */
+        var tbody = table.querySelector('tbody');
+        if (!tbody || tbody.rows.length === 0) return;
+
+        var id = _tableId(table);
+        _instances[id] = {
+            page     : 1,
+            perPage  : perPage || DEFAULT_PER_PAGE,
+            totalPages: 1,
+        };
+        _renderPaginationFooter(table);
+    }
+
+    function initAll(perPage) {
+        document.querySelectorAll('table.data-table:not(.dataTable), table.simple-table, .ov-stats-table').forEach(function (table) {
+            init(table, perPage);
+        });
+    }
+
+    function refresh(table) {
+        if (!table) return;
+        var id = _tableId(table);
+        if (!_instances[id]) { init(table); return; }
+        _instances[id].page = 1;
+        _renderPaginationFooter(table);
+    }
+
+    return { init: init, initAll: initAll, refresh: refresh };
+})();
 
 /* ─── AI CHAT ────────────────────────────────────────────────── */
 function sendAIMessage() {
@@ -630,6 +742,8 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
         if (typeof renderVisibleCharts === 'function') renderVisibleCharts();
         adjustResponsiveTables();
+        /* Init pagination on all visible manual tables */
+        if (typeof TablePagination !== 'undefined') TablePagination.initAll();
     }, 400);
 });
 
@@ -637,146 +751,6 @@ window.addEventListener('resize', function () {
     clearTimeout(window.__dsTableResizeTimer);
     window.__dsTableResizeTimer = setTimeout(adjustResponsiveTables, 160);
 });
-
-/**
- * dashboardOverview.js
- * Render & interaksi tab Dashboard Overview (grid KPI + 6 chart slots).
- */
-'use strict';
-
-var OverviewDashboard = (function () {
-    var data = null;
-    var rendered = new Set();
-
-    var PLOTLY_CFG = {
-        responsive: true,
-        displayModeBar: false,
-        displaylogo: false,
-        scrollZoom: false,
-    };
-
-    function getLayoutPatch() {
-        var dark = document.body.getAttribute('data-theme') === 'dark';
-        return {
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { color: dark ? '#c8d8f0' : '#2b3674', family: 'Inter, sans-serif', size: 11 },
-            margin: { l: 40, r: 16, t: 36, b: 36 },
-            hoverlabel: {
-                bgcolor: 'rgba(10,18,48,0.93)',
-                bordercolor: 'rgba(100,160,235,0.45)',
-                font: { color: '#e8f4fc', size: 12 },
-            },
-        };
-    }
-
-    function drawSlot(slotId, chartJson, force) {
-        if (!chartJson || typeof Plotly === 'undefined') return;
-        var el = document.getElementById(slotId);
-        if (!el) return;
-        if (!force && rendered.has(slotId)) {
-            Plotly.Plots.resize(el);
-            return;
-        }
-        var layout = Object.assign({}, chartJson.layout || {}, getLayoutPatch());
-        Plotly.react(el, chartJson.data || [], layout, PLOTLY_CFG).then(function () {
-            rendered.add(slotId);
-        }).catch(function (err) {
-            console.warn('[Overview] Chart render failed:', slotId, err);
-        });
-    }
-
-    function renderAll() {
-        if (!data || !data.slots) return;
-
-        Object.keys(data.slots).forEach(function (key) {
-            var slot = data.slots[key];
-            if (slot && slot.visible && slot.chart) {
-                drawSlot(key, slot.chart, false);
-            }
-        });
-    }
-
-    function bindToggles() {
-        if (!data || !data.toggle_data) return;
-
-        Object.keys(data.toggle_data).forEach(function (slotId) {
-            var toggle = data.toggle_data[slotId];
-            var select = document.getElementById('toggle-' + slotId);
-            if (!select || !toggle.charts) return;
-
-            select.addEventListener('change', function () {
-                var col = select.value;
-                var chart = toggle.charts[col];
-                if (chart) {
-                    rendered.delete(slotId);
-                    drawSlot(slotId, chart, true);
-                }
-            });
-        });
-    }
-
-    function bindVizNavigation() {
-        document.querySelectorAll('.ov-chart-slot[data-viz-tab]').forEach(function (el) {
-            el.addEventListener('click', function (e) {
-                if (e.target.closest('.ov-toggle-wrap')) return;
-                goToVisualizations(el.getAttribute('data-viz-tab'), el.getAttribute('data-viz-sub'));
-            });
-        });
-    }
-
-    function goToVisualizations(tab, subTab) {
-        if (tab === 'timeseries') {
-            if (typeof switchTab === 'function') switchTab('timeseries');
-            setTimeout(function () {
-                if (typeof switchTsTab === 'function') switchTsTab('line');
-            }, 90);
-            return;
-        }
-        if (typeof openVizCategory === 'function') {
-            openVizCategory(subTab || 'numerical');
-        } else if (typeof switchTab === 'function') {
-            switchTab('visualizations');
-        }
-    }
-
-    function init(overviewPayload) {
-        data = overviewPayload || null;
-        if (!data) return;
-
-        bindToggles();
-        bindVizNavigation();
-
-        var overviewTab = document.getElementById('tab-overview');
-        if (overviewTab && overviewTab.classList.contains('active-tab')) {
-            setTimeout(renderAll, 200);
-        }
-    }
-
-    function onTabShow() {
-        setTimeout(renderAll, 120);
-    }
-
-    function onResize() {
-        rendered.forEach(function (slotId) {
-            var el = document.getElementById(slotId);
-            if (el && el._fullLayout) Plotly.Plots.resize(el);
-        });
-    }
-
-    return {
-        init: init,
-        onTabShow: onTabShow,
-        onResize: onResize,
-        goToVisualizations: goToVisualizations,
-        renderAll: renderAll,
-    };
-})();
-
-/* Global hook untuk onclick di template */
-function goToVisualizations(tab, subTab) {
-    OverviewDashboard.goToVisualizations(tab, subTab);
-}
 
 // Sidebar accordion fix for Visualizations & Descriptive Statistics
 // Purpose: provide toggleAccordion(accId) and ensure submenu elements are shown/hidden.

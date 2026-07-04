@@ -733,13 +733,11 @@
 [data-theme="dark"] .dc-badge-warning { background:rgba(255,206,32,.12); color:#fcd34d; border-color:rgba(255,206,32,.3); }
 
 /* ── DC Layout ── */
-.dc-layout { display:grid; grid-template-columns:300px 1fr 260px; gap:18px; align-items:stretch; }
+.dc-layout { display:grid; grid-template-columns:320px 1fr; gap:18px; align-items:start; }
 .dc-ops-card, .dc-quality-card, .dc-history-card { display:flex; flex-direction:column; height:100%; }
-@media (max-width:1280px) { 
-    .dc-layout { grid-template-columns:280px 1fr; }
-    .dc-layout > .dc-history-card { grid-column: 1 / -1; }
+@media (max-width:1100px) { 
+    .dc-layout { grid-template-columns:1fr; }
 }
-@media (max-width:800px)  { .dc-layout { grid-template-columns:1fr; } }
 
 /* ── DC Ops panel ── */
 .dc-ops-card { overflow:visible !important; }
@@ -1382,52 +1380,52 @@
                 </ul>
             </div>
         </div><!-- end health card -->
-    </div><!-- end dc-middle-col -->
 
-    <!-- KANAN: History / Undo Panel -->
-    <div class="card dc-history-card">
-        <div class="dc-history-header">
-            <h4><i class="fas fa-history text-blue"></i> History</h4>
-            <button class="dc-btn-reset" onclick="DCleaning.confirmReset()">
-                <i class="fas fa-undo-alt"></i> Reset
-            </button>
-        </div>
-        <button class="dc-undo-last-btn" id="dc-undo-last-btn" onclick="DCleaning.undoLast()" disabled>
-            <i class="fas fa-step-backward"></i> Undo Langkah Terakhir
-        </button>
-        <div class="dc-history-list" id="dc-history-list">
-            {% for item in cleaning_history %}
-            <div class="dc-history-item {% if item.is_current %}current{% endif %} {% if item.is_initial %}initial{% endif %}"
-                 data-index="{{ item.index }}"
-                 onclick="DCleaning.undoToFromUI({{ item.index }}, {{ item.is_initial | tojson }})">
-                <div class="dc-history-dot"></div>
-                <div style="flex:1;min-width:0;">
-                    <div class="dc-history-label">{{ item.label }}</div>
-                    <div class="dc-history-meta">{{ item.rows }} baris · {{ item.cols }} kolom · {{ item.missing }} missing</div>
-                </div>
-                {% if not item.is_initial %}
-                <button class="dc-history-undo" onclick="event.stopPropagation();DCleaning.undoToFromUI({{ item.index }},false)">
-                    <i class="fas fa-undo"></i> Ke sini
+        <!-- Card E: History / Undo Panel (moved below Card D) -->
+        <div class="card dc-history-card">
+            <div class="dc-history-header">
+                <h4><i class="fas fa-history text-blue"></i> History</h4>
+                <button class="dc-btn-reset" onclick="DCleaning.confirmReset()">
+                    <i class="fas fa-undo-alt"></i> Reset
                 </button>
-                {% endif %}
             </div>
-            {% endfor %}
-        </div>
-        <div style="padding:12px 14px;border-top:1px solid var(--border);">
-            <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
-                <i class="fas fa-list-check"></i> Log Terkini
-            </div>
-            <ul id="dc-log-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto;">
-                {% if cleaning_history and cleaning_history[-1] and cleaning_history[-1].log is defined %}
-                {% for entry in cleaning_history[-1].log %}
-                <li style="font-size:.75rem;color:var(--text);display:flex;align-items:flex-start;gap:6px;line-height:1.45;">
-                    <i class="fas fa-check-circle text-green" style="margin-top:2px;flex-shrink:0;"></i>{{ entry }}
-                </li>
+            <button class="dc-undo-last-btn" id="dc-undo-last-btn" onclick="DCleaning.undoLast()" disabled>
+                <i class="fas fa-step-backward"></i> Undo Langkah Terakhir
+            </button>
+            <div class="dc-history-list" id="dc-history-list">
+                {% for item in cleaning_history %}
+                <div class="dc-history-item {% if item.is_current %}current{% endif %} {% if item.is_initial %}initial{% endif %}"
+                     data-index="{{ item.index }}"
+                     onclick="DCleaning.undoToFromUI({{ item.index }}, {{ item.is_initial | tojson }})">
+                    <div class="dc-history-dot"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="dc-history-label">{{ item.label }}</div>
+                        <div class="dc-history-meta">{{ item.rows }} baris · {{ item.cols }} kolom · {{ item.missing }} missing</div>
+                    </div>
+                    {% if not item.is_initial %}
+                    <button class="dc-history-undo" onclick="event.stopPropagation();DCleaning.undoToFromUI({{ item.index }},false)">
+                        <i class="fas fa-undo"></i> Ke sini
+                    </button>
+                    {% endif %}
+                </div>
                 {% endfor %}
-                {% endif %}
-            </ul>
-        </div>
-    </div>
+            </div>
+            <div style="padding:12px 14px;border-top:1px solid var(--border);">
+                <div style="font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+                    <i class="fas fa-list-check"></i> Log Terkini
+                </div>
+                <ul id="dc-log-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto;">
+                    {% if cleaning_history and cleaning_history[-1] and cleaning_history[-1].log is defined %}
+                    {% for entry in cleaning_history[-1].log %}
+                    <li style="font-size:.75rem;color:var(--text);display:flex;align-items:flex-start;gap:6px;line-height:1.45;">
+                        <i class="fas fa-check-circle text-green" style="margin-top:2px;flex-shrink:0;"></i>{{ entry }}
+                    </li>
+                    {% endfor %}
+                    {% endif %}
+                </ul>
+            </div>
+        </div><!-- end history card -->
+    </div><!-- end dc-middle-col -->
 
 </div><!-- end dc-layout -->
 
@@ -2855,7 +2853,7 @@ function switchPreviewMode(mode) {
     }
 })();
 
-/* ── switchTab patch: refresh banners saat kembali ke overview ── */
+/* ── switchTab patch: refresh banners + pagination saat tab berubah ── */
 var _origSwitchTab = window.switchTab;
 window.switchTab = function(tab) {
     if (_origSwitchTab) _origSwitchTab(tab);
@@ -2863,7 +2861,7 @@ window.switchTab = function(tab) {
     if (tab==='overview') {
         setTimeout(function(){
             if (typeof OverviewDashboard!=='undefined') OverviewDashboard.onTabShow();
-            // Refresh banners dari server
+            if (typeof TablePagination!=='undefined') TablePagination.initAll();
             fetch('/api/cleaning/status/{{ filename }}')
                 .then(function(r){ return r.json(); })
                 .then(function(d){
@@ -2879,7 +2877,10 @@ window.switchTab = function(tab) {
         }, 120);
     }
     if (tab==='timeseries') { setTimeout(function(){ switchTsTab('line'); }, 80); }
-    if (tab==='cleaning') { setTimeout(function(){ if(typeof DCleaning!=='undefined') DCleaning.init(); }, 80); }
+    if (tab==='cleaning') { setTimeout(function(){ if(typeof DCleaning!=='undefined') DCleaning.init(); if(typeof TablePagination!=='undefined') TablePagination.initAll(); }, 80); }
+    if (tab==='numerical' || tab==='categorical' || tab==='advanced') {
+        setTimeout(function(){ if(typeof TablePagination!=='undefined') TablePagination.initAll(); }, 80);
+    }
     if (tab==='report')   { setTimeout(function(){ if(typeof window._renderReportTab==='function') window._renderReportTab(); }, 80); }
 };
 

@@ -518,27 +518,7 @@ table.data-table tbody td {
     text-align: left;
 }
 
-.data-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-}
-
-.data-table th {
-    padding: 12px 14px !important;
-    font-size: 15px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.data-table td {
-    padding: 10px 14px !important;
-    vertical-align: middle;
-}
-
-.data-table tbody tr:hover {
-    background: #f8faff;
-}
-
+/* ─── DATATABLES OVERRIDES (for jQuery DataTables plugin) ──────── */
 table.dataTable tbody td {
     max-width: 250px;
     overflow: hidden;
@@ -546,9 +526,66 @@ table.dataTable tbody td {
     white-space: nowrap;
 }
 
-table.data-table tbody tr:hover { background: var(--bg); }
-
 .var-name { font-weight: 600; color: var(--blue) !important; }
+
+/* ─── TABLE PAGINATION FOOTER (Previous / Next) ─────────────── */
+.tp-pagination-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 10px 10px;
+    font-size: 0.8rem;
+}
+.tp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .18s;
+    white-space: nowrap;
+}
+.tp-btn:hover:not(:disabled) {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-light);
+}
+.tp-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.tp-info {
+    font-size: 0.76rem;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+/* Dark mode pagination */
+[data-theme="dark"] .tp-pagination-footer {
+    background: rgba(20, 28, 70, 0.6);
+    border-top-color: rgba(100, 130, 200, 0.2);
+}
+[data-theme="dark"] .tp-btn {
+    background: rgba(30, 40, 90, 0.8);
+    border-color: rgba(100, 130, 200, 0.25);
+    color: #c8d8f0;
+}
+[data-theme="dark"] .tp-btn:hover:not(:disabled) {
+    border-color: var(--blue);
+    color: #7ea9ff;
+    background: rgba(67, 24, 255, 0.12);
+}
 
 /* ─── SIMPLE TABLE ───────────────────────────────────────────── */
 .simple-table {
