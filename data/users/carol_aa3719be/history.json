@@ -1,13 +1,6 @@
 {
   "user_id": "aa3719be-e6e1-40f6-8fa8-4e6355986e6b",
   "username": "carol",
-  "files_uploaded": [
-    {
-      "type": "upload",
-      "timestamp": "2026-06-26T03:51:43.399673",
-      "filename": "ecommerce.txt",
-      "size": 336301
-    }
-  ],
+  "files_uploaded": [],
   "analyses": []
 }

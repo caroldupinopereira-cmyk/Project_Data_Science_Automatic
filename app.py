@@ -1,4 +1,5 @@
 import os
+import uuid
 import datetime
 import functools
 
@@ -11,7 +12,6 @@ import pandas as pd
 import numpy as np
 
 from backend.data_loader import load_data
-from backend.data_cleaning import clean_dataset, analyze_quality, get_cleaning_summary
 from backend.preprocessing import detect_data_types
 from backend.descriptive_stats import get_summary_metrics, get_descriptive_stats
 from backend.advanced_stats import get_advanced_stats
@@ -125,7 +125,15 @@ def _user_upload_dir():
             os.makedirs(upload_dir, exist_ok=True)
             return upload_dir
 
-    # Sistem 2: Simple login → uploads/<user_id>/
+    # Sistem 2: Simple login → data/users/<name>_<short_uuid>/uploaded/
+    from backend.user_data import get_upload_dir, get_user_dir
+    user_dir = get_user_dir(user_id, user_name)
+    if user_dir:
+        upload_dir = os.path.join(user_dir, 'uploaded')
+        os.makedirs(upload_dir, exist_ok=True)
+        return upload_dir
+
+    # Fallback
     base_dir = os.path.abspath(app.config['UPLOAD_FOLDER'])
     user_dir = os.path.abspath(os.path.join(base_dir, user_id))
     if not user_dir.startswith(base_dir):
@@ -148,7 +156,8 @@ def allowed_file(filename):
 def _get_or_init_session(filename):
     """
     Ambil CleaningSession untuk filename.
-    Jika belum ada, load dari disk dan inisialisasi.
+    Jika belum ada di memory, coba load dari disk.
+    Jika tidak ada di disk juga, buat baru dari file upload.
     Secures against path traversal attacks by validating with secure_filename.
     Return: (session, error_msg)
     """
@@ -157,10 +166,19 @@ def _get_or_init_session(filename):
         return None, 'Nama file tidak valid.'
 
     key = _session_key(safe_name)
+
+    # Coba dari memory dulu
     sess = get_session(key)
     if sess is not None:
         return sess, None
 
+    # Coba load dari disk
+    from backend.cleaning_engine import load_session_from_disk
+    sess = load_session_from_disk(key)
+    if sess is not None:
+        return sess, None
+
+    # Buat baru dari file upload
     base_dir = _user_upload_dir()
     if not base_dir:
         return None, 'Silakan login terlebih dahulu.'
@@ -222,10 +240,12 @@ def login():
             return render_template('login.html', next_url=next_url)
 
         session['user'] = {
-            'id': _user_id_from_name(name),
+            'id': str(uuid.uuid4()),
             'name': name,
             'role': role or 'Data Analyst',
         }
+        from backend.user_data import create_user_folder
+        create_user_folder(session['user']['id'], name)
         flash(f'Selamat datang, {name}!', 'success')
         return redirect(next_url)
 
@@ -299,6 +319,15 @@ def upload_file():
             df_raw = load_data(filepath)
             if df_raw is not None:
                 reset_session(_session_key(filename), df_raw)
+                # Record upload to history
+                user = current_user()
+                if user:
+                    from backend.user_data import add_to_history
+                    add_to_history(user['id'], 'upload', {
+                        'filename': filename,
+                        'rows': len(df_raw),
+                        'cols': len(df_raw.columns),
+                    }, user.get('name'))
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
@@ -375,10 +404,21 @@ def _get_dashboard_context(filename):
             'log'               : cleaning_log,
         }
     else:
-        df_temp, cleaning_log_temp = clean_dataset(df_raw, {})
-        cleaning_summary = get_cleaning_summary(df_raw, df_temp, cleaning_log_temp)
+        # Backward-compat: build cleaning_summary from raw data
+        cleaning_summary = {
+            'rows_before'       : len(df_raw),
+            'rows_after'        : len(df),
+            'cols_before'       : len(df_raw.columns),
+            'cols_after'        : len(df.columns),
+            'missing_before'    : int(df_raw.isna().sum().sum()),
+            'missing_after'     : int(df.isna().sum().sum()),
+            'missing_pct_before': round(int(df_raw.isna().sum().sum()) / max(df_raw.size, 1) * 100, 2),
+            'missing_pct_after' : round(int(df.isna().sum().sum()) / max(df.size, 1) * 100, 2),
+            'duplicates_removed': len(df_raw) - len(df),
+            'log'               : [],
+        }
 
-    quality_report = analyze_quality(df)
+    quality_report = get_quality_report(df)
 
     # ── Column detection ──────────────────────────────────────────────────────
     num_cols, cat_cols, ts_cols = detect_data_types(df)
@@ -897,6 +937,23 @@ def api_cleaning_apply(filename):
         return jsonify({'ok': False, 'error': 'op_type diperlukan'}), 400
 
     result = sess.apply_step(op_type, op_params)
+    if result.get('ok'):
+        try:
+            from backend.cleaning_engine import save_cleaned_to_disk, persist_session
+            user = current_user()
+            if user:
+                from backend.user_data import get_cleaned_dir
+                cleaned_dir = get_cleaned_dir(user['id'], user.get('name'))
+                if cleaned_dir:
+                    save_cleaned_to_disk(_session_key(filename), cleaned_dir)
+                from backend.user_data import add_to_history
+                add_to_history(user['id'], 'cleaning', {
+                    'filename': filename, 'operation': op_type,
+                    'rows_affected': result.get('summary', {}).get('rows_changed', 0),
+                }, user.get('name'))
+            persist_session(_session_key(filename))
+        except Exception:
+            pass
     return jsonify(result)
 
 
@@ -918,6 +975,19 @@ def api_cleaning_undo(filename):
     else:
         result = sess.undo()
 
+    if result.get('ok'):
+        try:
+            from backend.cleaning_engine import save_cleaned_to_disk, persist_session
+            user = current_user()
+            if user:
+                from backend.user_data import get_cleaned_dir
+                cleaned_dir = get_cleaned_dir(user['id'], user.get('name'))
+                if cleaned_dir:
+                    save_cleaned_to_disk(_session_key(filename), cleaned_dir)
+            persist_session(_session_key(filename))
+        except Exception:
+            pass
+
     return jsonify(result)
 
 
@@ -929,6 +999,52 @@ def api_cleaning_reset(filename):
         return jsonify({'ok': False, 'error': err}), 404
 
     result = sess.reset()
+    if result.get('ok'):
+        try:
+            from backend.cleaning_engine import save_cleaned_to_disk, persist_session
+            user = current_user()
+            if user:
+                from backend.user_data import get_cleaned_dir
+                cleaned_dir = get_cleaned_dir(user['id'], user.get('name'))
+                if cleaned_dir:
+                    save_cleaned_to_disk(_session_key(filename), cleaned_dir)
+            persist_session(_session_key(filename))
+        except Exception:
+            pass
+    return jsonify(result)
+
+
+@app.route('/api/cleaning/auto-clean/<filename>', methods=['POST'])
+def api_cleaning_auto_clean(filename):
+    """
+    POST auto-clean: jalankan beberapa langkah cleaning sekaligus.
+    Body JSON opsional: { options: { ... } }
+    """
+    sess, err = _get_or_init_session(filename)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 404
+
+    data = request.get_json() or {}
+    options = data.get('options', {})
+
+    result = sess.auto_clean(options)
+    if result.get('ok'):
+        try:
+            from backend.cleaning_engine import save_cleaned_to_disk, persist_session
+            user = current_user()
+            if user:
+                from backend.user_data import get_cleaned_dir
+                cleaned_dir = get_cleaned_dir(user['id'], user.get('name'))
+                if cleaned_dir:
+                    save_cleaned_to_disk(_session_key(filename), cleaned_dir)
+                from backend.user_data import add_to_history
+                add_to_history(user['id'], 'auto_clean', {
+                    'filename': filename,
+                    'steps': len(result.get('steps_applied', [])),
+                }, user.get('name'))
+            persist_session(_session_key(filename))
+        except Exception:
+            pass
     return jsonify(result)
 
 
@@ -985,6 +1101,161 @@ def api_cleaning_columns(filename):
     return jsonify({'ok': True, 'columns': cols, 'is_cleaned': sess.is_cleaned})
 
 
+@app.route('/api/cleaning/column-profile/<filename>/<col_name>')
+def api_column_profile(filename, col_name):
+    """
+    GET detail profile untuk satu kolom: distribusi, top values, statistics.
+    """
+    sess, err = _get_or_init_session(filename)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 404
+
+    df = sess.df_current
+    if col_name not in df.columns:
+        return jsonify({'ok': False, 'error': f'Kolom "{col_name}" tidak ditemukan.'}), 404
+
+    s = df[col_name]
+    total = len(s)
+    missing = int(s.isna().sum())
+    missing_pct = round(missing / total * 100, 2) if total else 0
+    unique = int(s.nunique(dropna=True))
+    is_numeric = bool(pd.api.types.is_numeric_dtype(s))
+
+    profile = {
+        'column': col_name,
+        'dtype': str(s.dtype),
+        'total': total,
+        'missing': missing,
+        'missing_pct': missing_pct,
+        'unique': unique,
+        'is_numeric': is_numeric,
+    }
+
+    if is_numeric:
+        valid = s.dropna()
+        if not valid.empty:
+            profile.update({
+                'mean': round(float(valid.mean()), 4),
+                'median': round(float(valid.median()), 4),
+                'std': round(float(valid.std()), 4),
+                'min': round(float(valid.min()), 4),
+                'max': round(float(valid.max()), 4),
+                'q1': round(float(valid.quantile(0.25)), 4),
+                'q3': round(float(valid.quantile(0.75)), 4),
+                'skewness': round(float(valid.skew()), 4),
+                'kurtosis': round(float(valid.kurt()), 4),
+            })
+            # Histogram bins
+            try:
+                counts, bin_edges = np.histogram(valid, bins=10)
+                profile['histogram'] = {
+                    'counts': [int(c) for c in counts],
+                    'edges': [round(float(e), 4) for e in bin_edges],
+                }
+            except Exception:
+                profile['histogram'] = None
+        else:
+            profile['histogram'] = None
+    else:
+        # Categorical: top values
+        vc = s.value_counts().head(10)
+        profile['top_values'] = [
+            {'value': str(v), 'count': int(c), 'pct': round(c / total * 100, 1)}
+            for v, c in vc.items()
+        ]
+
+    # Sample data
+    sample = s.dropna().head(5).tolist()
+    profile['sample'] = [str(x) for x in sample]
+
+    return jsonify({'ok': True, 'profile': profile})
+
+
+@app.route('/api/cleaning/before-after/<filename>')
+def api_before_after(filename):
+    """
+    GET perbandingan data sebelum vs sesudah cleaning (10 baris pertama).
+    """
+    sess, err = _get_or_init_session(filename)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 404
+
+    df_raw = sess.df_raw
+    df_current = sess.df_current
+
+    before_html = df_raw.head(10).to_html(
+        classes='data-table', index=False, border=0,
+        table_id='before-table',
+    )
+    after_html = df_current.head(10).to_html(
+        classes='data-table', index=False, border=0,
+        table_id='after-table',
+    )
+
+    # Summary diff
+    summary = {
+        'rows_before': len(df_raw),
+        'rows_after': len(df_current),
+        'cols_before': len(df_raw.columns),
+        'cols_after': len(df_current.columns),
+        'missing_before': int(df_raw.isna().sum().sum()),
+        'missing_after': int(df_current.isna().sum().sum()),
+        'duplicates_before': int(df_raw.duplicated().sum()),
+        'duplicates_after': int(df_current.duplicated().sum()),
+    }
+
+    return jsonify({
+        'ok': True,
+        'before_html': before_html,
+        'after_html': after_html,
+        'summary': summary,
+        'is_cleaned': sess.is_cleaned,
+    })
+
+
+@app.route('/api/cleaning/steps-summary/<filename>')
+def api_steps_summary(filename):
+    """
+    GET ringkasan visual semua langkah cleaning yang sudah dilakukan.
+    """
+    sess, err = _get_or_init_session(filename)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 404
+
+    history = sess.history_labels
+    steps = []
+    for item in history:
+        if item['is_initial']:
+            continue
+        steps.append({
+            'index': item['index'],
+            'label': item['label'],
+            'rows': item['rows'],
+            'cols': item['cols'],
+            'missing': item['missing'],
+            'is_current': item['is_current'],
+        })
+
+    # Calculate overall impact
+    if len(sess._history) > 1:
+        first = sess._history[0]
+        last = sess._history[-1]
+        impact = {
+            'rows_changed': len(last.df) - len(first.df),
+            'cols_changed': len(last.df.columns) - len(first.df.columns),
+            'missing_changed': int(last.df.isna().sum().sum()) - int(first.df.isna().sum().sum()),
+            'total_steps': len(history) - 1,
+        }
+    else:
+        impact = {'rows_changed': 0, 'cols_changed': 0, 'missing_changed': 0, 'total_steps': 0}
+
+    return jsonify({
+        'ok': True,
+        'steps': steps,
+        'impact': impact,
+    })
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # VISUALIZATION MASTER API
 # ─────────────────────────────────────────────────────────────────────────────
@@ -993,7 +1264,7 @@ def _load_analysis_df(filename):
     """
     Muat df untuk visualisasi.
     Prioritaskan df_current dari CleaningSession jika sudah cleaned,
-    fallback ke clean_dataset(df_raw, {}) untuk backward-compat.
+    fallback ke reset_session untuk backward-compat.
     """
     safe_name = secure_filename(filename)
     if not safe_name or safe_name != filename:
@@ -1011,14 +1282,16 @@ def _load_analysis_df(filename):
         return None, None, None, None
 
     # Cek session — pakai df yang sudah cleaned jika ada
-    sess = get_session(_session_key(safe_name))
+    key = _session_key(safe_name)
+    sess = get_session(key)
     if sess is not None:
         df = sess.df_current
     else:
         df_raw = load_data(filepath)
         if df_raw is None:
             return None, None, None, None
-        df, _ = clean_dataset(df_raw, {})
+        sess = reset_session(key, df_raw)
+        df = sess.df_current
 
     num_cols, cat_cols, ts_cols = detect_data_types(df)
     dt_cols_legacy = detect_datetime_cols(df)

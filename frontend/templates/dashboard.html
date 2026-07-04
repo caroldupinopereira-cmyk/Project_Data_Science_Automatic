@@ -843,6 +843,17 @@
             </h2>
             <p class="text-muted" style="margin-top:4px;" data-translate="cleaning_desc">Pilih operasi, preview dampak, lalu apply. Semua langkah tersimpan di history.</p>
         </div>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="DCleaning.showBeforeAfter()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--blue);background:transparent;color:var(--blue);font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:.18s;">
+                <i class="fas fa-left-right"></i> Before/After
+            </button>
+            <button onclick="DCleaning.showStepsSummary()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--purple);background:transparent;color:var(--purple);font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;transition:.18s;">
+                <i class="fas fa-list-check"></i> Steps Summary
+            </button>
+            <a href="/dashboard/{{ filename }}/export/excel" style="padding:7px 14px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;text-decoration:none;transition:.18s;">
+                <i class="fas fa-download"></i> Export Excel
+            </a>
+        </div>
     </div>
 </div>
 
@@ -887,8 +898,100 @@
 <!-- DC 3-col layout -->
 <div class="dc-layout">
 
-    <!-- KIRI: Operation Panel -->
-    <div class="card dc-ops-card">
+    <!-- KIRI: Left Column (Auto Clean + Operasi Cleaning) -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+        <!-- Auto Clean Card -->
+        <div class="card" style="border-radius:14px;border:1px solid var(--border);background:var(--card);overflow:visible !important;">
+            <div style="padding:14px 18px 12px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(5,205,153,.06),rgba(67,24,255,.04));">
+                <h4 style="font-size:.93rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;">
+                    <i class="fas fa-wand-magic-sparkles text-green"></i> Auto Clean
+                </h4>
+                <p style="font-size:.72rem;color:var(--muted);margin-top:4px;">Jalankan semua langkah cleaning otomatis sekaligus</p>
+            </div>
+            <div style="padding:12px 16px;">
+                <button class="dc-op-btn" onclick="DCleaning.togglePanel('panel-autoclean')" style="border-color:var(--green);background:linear-gradient(135deg,rgba(5,205,153,.08),rgba(67,24,255,.05));">
+                    <span><i class="fas fa-bolt" style="margin-right:7px;color:var(--green);"></i><strong>Auto Clean Sekaligus</strong></span>
+                    <i class="fas fa-chevron-down" id="icon-panel-autoclean"></i>
+                </button>
+                <div class="dc-sub-panel" id="panel-autoclean">
+                    <p style="font-size:.72rem;color:var(--muted);margin-bottom:6px;">Atur opsi cleaning yang ingin dijalankan:</p>
+                    <div class="dc-field">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="ac-strip" checked style="accent-color:var(--green);width:14px;height:14px;">
+                            Strip Whitespace
+                        </label>
+                    </div>
+                    <div class="dc-field">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="ac-empty-nan" checked style="accent-color:var(--green);width:14px;height:14px;">
+                            Empty String → NaN
+                        </label>
+                    </div>
+                    <div class="dc-field">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="ac-dedup" checked style="accent-color:var(--green);width:14px;height:14px;">
+                            Hapus Duplikat
+                        </label>
+                    </div>
+                    <div class="dc-field">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="ac-fix-inconsist" checked style="accent-color:var(--green);width:14px;height:14px;">
+                            Perbaiki Inkonsistensi Teks
+                        </label>
+                    </div>
+                    <div class="dc-field">
+                        <label>Drop Kolom Missing > (%)</label>
+                        <select id="ac-drop-miss-thresh">
+                            <option value="0">Tidak di-drop</option>
+                            <option value="0.5" selected>50% ke atas</option>
+                            <option value="0.7">70% ke atas</option>
+                            <option value="0.9">90% ke atas</option>
+                        </select>
+                    </div>
+                    <div class="dc-field">
+                        <label>Isi Missing Numerik</label>
+                        <select id="ac-fill-num">
+                            <option value="median" selected>Median</option>
+                            <option value="mean">Mean</option>
+                            <option value="none">Tidak diisi</option>
+                        </select>
+                    </div>
+                    <div class="dc-field">
+                        <label>Isi Missing Kategorik</label>
+                        <select id="ac-fill-cat">
+                            <option value="mode" selected>Mode</option>
+                            <option value="none">Tidak diisi</option>
+                        </select>
+                    </div>
+                    <div class="dc-field">
+                        <label style="display:flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="ac-remove-outliers" style="accent-color:var(--orange);width:14px;height:14px;">
+                            Hapus/Cap Outliers
+                        </label>
+                    </div>
+                    <div class="dc-field" id="ac-outlier-opts-wrap" style="display:none;">
+                        <label>Metode Outlier</label>
+                        <select id="ac-outlier-method">
+                            <option value="iqr">IQR</option>
+                            <option value="zscore">Z-Score</option>
+                        </select>
+                        <label style="margin-top:6px;">Aksi</label>
+                        <select id="ac-outlier-action">
+                            <option value="cap">Cap (Winsorize)</option>
+                            <option value="remove">Remove (Hapus Baris)</option>
+                        </select>
+                    </div>
+                    <div class="dc-action-row" style="margin-top:8px;">
+                        <button class="dc-btn-apply" onclick="DCleaning.autoClean()" style="flex:1;padding:10px 0;border-radius:10px;background:linear-gradient(135deg,var(--green),#04a87a);font-size:.85rem;font-weight:800;box-shadow:0 4px 14px rgba(5,205,153,.3);">
+                            <i class="fas fa-wand-magic-sparkles"></i> Jalankan Auto Clean
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operation Panel Card -->
+        <div class="card dc-ops-card">
         <div style="padding:14px 18px 12px;border-bottom:1px solid var(--border);">
             <h4 style="font-size:.93rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;" data-translate="cleaning_ops">
                 <i class="fas fa-sliders-h text-blue"></i> Operasi Cleaning
@@ -1026,12 +1129,18 @@
                 <div class="dc-field">
                     <label>Metode Perbaikan</label>
                     <select id="inconsistencies-method">
-                        <option value="strip">Strip Whitespace</option>
+                        <option value="all">Full Cleanup (Semua sekaligus)</option>
+                        <option value="smart">Smart Normalization (Deteksi otomatis)</option>
+                        <option value="strip">Strip Whitespace saja</option>
                         <option value="lower">Strip & Lowercase (Kecil semua)</option>
                         <option value="upper">Strip & Uppercase (Besar semua)</option>
                         <option value="title">Strip & Title Case (Kapital Awal)</option>
                     </select>
                 </div>
+                <p style="font-size:.68rem;color:var(--muted);margin-top:2px;">
+                    <strong>Full Cleanup</strong>: whitespace + special chars + title case<br>
+                    <strong>Smart</strong>: deteksi otomatis (gender, status, singkatan)
+                </p>
                 <div class="dc-action-row">
                     <button class="dc-btn-preview" onclick="DCleaning.preview('fix_inconsistencies')"><i class="fas fa-eye"></i> Preview</button>
                     <button class="dc-btn-apply"   onclick="DCleaning.apply('fix_inconsistencies')"><i class="fas fa-check"></i> Apply</button>
@@ -1059,6 +1168,73 @@
                     <button class="dc-btn-preview" onclick="DCleaning.preview('drop_irrelevant_cols')"><i class="fas fa-eye"></i> Preview</button>
                     <button class="dc-btn-apply"   onclick="DCleaning.apply('drop_irrelevant_cols')"><i class="fas fa-check"></i> Apply</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- ══ REGEX CUSTOM RULE ══ -->
+        <div class="dc-ops-section">
+            <div class="dc-section-title"><i class="fas fa-code text-red"></i> Regex Custom Rule</div>
+            <button class="dc-op-btn" onclick="DCleaning.togglePanel('panel-regex')">
+                <span><i class="fas fa-search-and-replace" style="margin-right:7px;"></i>Find & Replace (Regex)</span>
+                <i class="fas fa-chevron-down" id="icon-panel-regex"></i>
+            </button>
+            <div class="dc-sub-panel" id="panel-regex">
+                <p style="font-size:.68rem;color:var(--muted);margin-bottom:6px;">Cari & ganti nilai dengan regex pattern. Contoh: <code>\d+</code> = semua angka, <code>^\s+</code> = spasi awal.</p>
+                <div class="dc-field">
+                    <label>Regex Pattern</label>
+                    <input type="text" id="regex-pattern" placeholder="e.g. \d+ atau [A-Z]+" style="font-family:monospace;">
+                </div>
+                <div class="dc-field">
+                    <label>Replacement</label>
+                    <input type="text" id="regex-replacement" placeholder="e.g. NUM atau kosongkan">
+                </div>
+                <div class="dc-field">
+                    <label style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="regex-caseignore" checked style="accent-color:var(--blue);width:14px;height:14px;">
+                        Case Insensitive
+                    </label>
+                </div>
+                <div class="dc-field">
+                    <label>Terapkan ke Kolom</label>
+                    <select id="regex-scope">
+                        <option value="all">Semua Kolom Teks</option>
+                        <option value="select">Pilih Kolom Tertentu</option>
+                    </select>
+                </div>
+                <div class="dc-field" id="regex-cols-wrap" style="display:none;">
+                    <label>Pilih Kolom</label>
+                    <div class="dc-col-checklist" id="regex-cols-list"></div>
+                </div>
+                <div class="dc-action-row">
+                    <button class="dc-btn-preview" onclick="DCleaning.preview('regex_replace')"><i class="fas fa-eye"></i> Preview</button>
+                    <button class="dc-btn-apply"   onclick="DCleaning.apply('regex_replace')"><i class="fas fa-check"></i> Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ CLEANING PRESETS ══ -->
+        <div class="dc-ops-section">
+            <div class="dc-section-title"><i class="fas fa-bookmark text-blue"></i> Presets</div>
+            <button class="dc-op-btn" onclick="DCleaning.togglePanel('panel-presets')">
+                <span><i class="fas fa-save" style="margin-right:7px;"></i>Load/Save Preset</span>
+                <i class="fas fa-chevron-down" id="icon-panel-presets"></i>
+            </button>
+            <div class="dc-sub-panel" id="panel-presets">
+                <p style="font-size:.68rem;color:var(--muted);margin-bottom:6px;">Simpan konfigurasi cleaning atau load preset yang sudah ada.</p>
+                <div class="dc-field">
+                    <label>Preset Tersimpan</label>
+                    <select id="preset-select">
+                        <option value="">— Pilih Preset —</option>
+                    </select>
+                </div>
+                <div class="dc-action-row">
+                    <button class="dc-btn-preview" onclick="DCleaning.loadPreset()" style="flex:1;"><i class="fas fa-download"></i> Load</button>
+                    <button class="dc-btn-apply" onclick="DCleaning.savePreset()" style="flex:1;"><i class="fas fa-upload"></i> Save Current</button>
+                </div>
+                <div class="dc-field" style="margin-top:6px;">
+                    <input type="text" id="preset-name" placeholder="Nama preset baru...">
+                </div>
+                <button class="dc-btn-preview" onclick="DCleaning.deletePreset()" style="width:100%;margin-top:4px;border-color:var(--red);color:var(--red);"><i class="fas fa-trash"></i> Delete Selected</button>
             </div>
         </div>
 
@@ -1094,6 +1270,7 @@
             </div>
         </div>
     </div><!-- end ops card -->
+    </div><!-- end left column wrapper -->
 
     <!-- TENGAH: Column Wrapper -->
     <div class="dc-middle-col" style="display:flex; flex-direction:column; gap:18px; flex:1; min-width: 0;">
@@ -1190,10 +1367,10 @@
                         </div>
                         <div style="height:8px; border-radius:4px; background:var(--border); overflow:hidden;">
                             <div id="uniqueness-bar" style="height:100%; background:var(--green); width: 100%; transition: width 0.6s ease;"></div>
-                        </div>
-                    </div>
-                </div>
             </div>
+        </div>
+    </div>
+</div>
             
             <!-- Recommendations / Action list -->
             <div style="background:var(--bg); border: 1px solid var(--border); border-radius:10px; padding:10px 14px; margin-top: 14px;">
@@ -1272,6 +1449,45 @@
                 <button class="dc-btn-cancel-modal" onclick="DCleaning.closePreview()"><i class="fas fa-times"></i> Batal</button>
                 <button class="dc-btn-confirm-modal" id="dc-btn-confirm-apply"><i class="fas fa-check"></i> Apply Perubahan Ini</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- DC Column Profile Modal -->
+<div class="dc-preview-modal" id="dc-profile-modal">
+    <div class="dc-preview-content" style="max-width:600px;">
+        <div class="dc-preview-header">
+            <h3><i class="fas fa-column text-blue"></i> Column Profile</h3>
+            <button class="dc-preview-close" onclick="document.getElementById('dc-profile-modal').classList.remove('open')">&times;</button>
+        </div>
+        <div class="dc-preview-body" id="dc-profile-body">
+            <p style="color:var(--muted);">Loading...</p>
+        </div>
+    </div>
+</div>
+
+<!-- DC Before/After Modal -->
+<div class="dc-preview-modal" id="dc-beforeafter-modal">
+    <div class="dc-preview-content" style="max-width:750px;">
+        <div class="dc-preview-header">
+            <h3><i class="fas fa-left-right text-blue"></i> Before/After Comparison</h3>
+            <button class="dc-preview-close" onclick="document.getElementById('dc-beforeafter-modal').classList.remove('open')">&times;</button>
+        </div>
+        <div class="dc-preview-body" id="dc-beforeafter-body">
+            <p style="color:var(--muted);">Loading...</p>
+        </div>
+    </div>
+</div>
+
+<!-- DC Steps Summary Modal -->
+<div class="dc-preview-modal" id="dc-steps-modal">
+    <div class="dc-preview-content" style="max-width:550px;">
+        <div class="dc-preview-header">
+            <h3><i class="fas fa-list-check text-purple"></i> Cleaning Steps Summary</h3>
+            <button class="dc-preview-close" onclick="document.getElementById('dc-steps-modal').classList.remove('open')">&times;</button>
+        </div>
+        <div class="dc-preview-body" id="dc-steps-body">
+            <p style="color:var(--muted);">Loading...</p>
         </div>
     </div>
 </div>
@@ -1364,6 +1580,16 @@ var DCleaning = (function () {
         if (op_type==='drop_irrelevant_cols') {
             return { threshold: parseFloat(document.getElementById('irrelevant-threshold').value) };
         }
+        if (op_type==='regex_replace') {
+            var scope=document.getElementById('regex-scope').value;
+            var params={
+                pattern: document.getElementById('regex-pattern').value,
+                replacement: document.getElementById('regex-replacement').value,
+                case_insensitive: document.getElementById('regex-caseignore').checked
+            };
+            if (scope==='select') params.columns=_getChecked('regex-cols-list');
+            return params;
+        }
         if (op_type==='drop_high_missing') return {threshold:parseFloat(document.getElementById('dropmiss-thresh').value)};
         return {};
     }
@@ -1399,6 +1625,43 @@ var DCleaning = (function () {
 
     function apply(op_type) { _doApply(op_type,_buildParams(op_type)); }
     function applyQuick(op_type) { _doApply(op_type,{}); }
+
+    function autoClean() {
+        var options = {
+            strip_whitespace:          document.getElementById('ac-strip').checked,
+            empty_to_nan:              document.getElementById('ac-empty-nan').checked,
+            drop_duplicates:           document.getElementById('ac-dedup').checked,
+            fix_inconsistencies:       document.getElementById('ac-fix-inconsist').checked,
+            drop_high_missing:         parseFloat(document.getElementById('ac-drop-miss-thresh').value) || 0,
+            fill_missing_numeric:      document.getElementById('ac-fill-num').value,
+            fill_missing_categorical:  document.getElementById('ac-fill-cat').value,
+            remove_outliers:           document.getElementById('ac-remove-outliers').checked,
+            outlier_method:            document.getElementById('ac-outlier-method').value,
+            outlier_action:            document.getElementById('ac-outlier-action').value,
+        };
+
+        showToast('Menjalankan Auto Clean... Mohon tunggu.', 'info');
+
+        fetch(BASE + '/auto-clean/' + FILENAME, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ options: options })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.ok) {
+                showToast(d.error || 'Auto Clean gagal.', 'error');
+                return;
+            }
+            var msg = 'Auto Clean berhasil! ' + d.total_steps + ' langkah diterapkan.';
+            triggerToastAfterReload(msg, 'success');
+            localStorage.setItem('ds_active_tab', 'cleaning');
+            window.location.reload();
+        })
+        .catch(function(e) {
+            showToast('Auto Clean error: ' + e.message, 'error');
+        });
+    }
 
     function _doApply(op_type,op_params) {
         fetch(BASE+'/apply/'+FILENAME,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op_type:op_type,op_params:op_params})})
@@ -1554,7 +1817,7 @@ var DCleaning = (function () {
         var tbody=document.getElementById('dc-quality-tbody');
         if (!tbody||!quality.columns) return;
         tbody.innerHTML=quality.columns.map(function(row){
-            return '<tr><td class="var-name">'+_esc(row.column)+'</td><td>'+_esc(row.dtype)+'</td>'+
+            return '<tr><td class="var-name" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--blue);text-underline-offset:2px;" onclick="DCleaning.showColumnProfile(\''+row.column.replace(/'/g,"\\'")+'\')">'+_esc(row.column)+'</td><td>'+_esc(row.dtype)+'</td>'+
                 '<td class="'+(row.missing>0?'text-warning':'')+'">'+row.missing+'</td>'+
                 '<td class="'+(row.missing_pct>0?'text-warning':'')+'">'+row.missing_pct+'%</td>'+
                 '<td>'+row.unique+'</td><td class="'+(row.outliers>0?'text-danger':'')+'">'+row.outliers+'</td>'+
@@ -1653,9 +1916,233 @@ var DCleaning = (function () {
 
         var modal=document.getElementById('dc-preview-modal');
         if (modal) modal.addEventListener('click',function(e){ if(e.target===modal) closePreview(); });
+
+        // Auto Clean: show/hide outlier options
+        var acOutlierCb = document.getElementById('ac-remove-outliers');
+        if (acOutlierCb) acOutlierCb.addEventListener('change', function(){
+            var w = document.getElementById('ac-outlier-opts-wrap');
+            if (w) w.style.display = this.checked ? 'flex' : 'none';
+        });
+
+        // Regex scope change
+        var rs = document.getElementById('regex-scope');
+        if (rs) rs.addEventListener('change', function(){
+            var w = document.getElementById('regex-cols-wrap');
+            if (w) w.style.display = this.value === 'select' ? 'flex' : 'none';
+        });
+
+        // Load presets on init
+        _loadPresetList();
     }
 
-    return { togglePanel:togglePanel, preview:preview, closePreview:closePreview, apply:apply, applyQuick:applyQuick, undoLast:undoLast, undoToFromUI:undoToFromUI, confirmReset:confirmReset, refreshQuality:refreshQuality, init:init };
+    // ═══ Column Profile ═══
+    function showColumnProfile(colName) {
+        fetch(BASE + '/column-profile/' + FILENAME + '/' + encodeURIComponent(colName))
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.ok) { showToast(d.error || 'Gagal memuat profil.', 'error'); return; }
+                _renderColumnProfile(d.profile);
+            })
+            .catch(function(e){ showToast('Error: ' + e.message, 'error'); });
+    }
+
+    function _renderColumnProfile(p) {
+        var html = '<div style="padding:20px 24px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">';
+        html += '<h3 style="margin:0;font-size:1rem;font-weight:800;color:var(--text);"><i class="fas fa-column text-blue"></i> ' + _esc(p.column) + '</h3>';
+        html += '<span class="dc-badge dc-badge-' + (p.missing > 0 ? 'danger' : 'success') + '">' + p.dtype + '</span>';
+        html += '</div>';
+
+        // Stats grid
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;">';
+        html += '<div class="dc-stat-card"><span class="dc-stat-label">Total</span><span class="dc-stat-value">' + p.total + '</span></div>';
+        html += '<div class="dc-stat-card ' + (p.missing > 0 ? 'has-issue' : 'all-good') + '"><span class="dc-stat-label">Missing</span><span class="dc-stat-value">' + p.missing + ' (' + p.missing_pct + '%)</span></div>';
+        html += '<div class="dc-stat-card"><span class="dc-stat-label">Unique</span><span class="dc-stat-value">' + p.unique + '</span></div>';
+        if (p.is_numeric) {
+            html += '<div class="dc-stat-card"><span class="dc-stat-label">Mean</span><span class="dc-stat-value">' + (p.mean || 'N/A') + '</span></div>';
+            html += '<div class="dc-stat-card"><span class="dc-stat-label">Median</span><span class="dc-stat-value">' + (p.median || 'N/A') + '</span></div>';
+            html += '<div class="dc-stat-card"><span class="dc-stat-label">Std</span><span class="dc-stat-value">' + (p.std || 'N/A') + '</span></div>';
+            html += '<div class="dc-stat-card"><span class="dc-stat-label">Min</span><span class="dc-stat-value">' + (p.min || 'N/A') + '</span></div>';
+            html += '<div class="dc-stat-card"><span class="dc-stat-label">Max</span><span class="dc-stat-value">' + (p.max || 'N/A') + '</span></div>';
+        }
+        html += '</div>';
+
+        // Top values (categorical)
+        if (p.top_values && p.top_values.length > 0) {
+            html += '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;"><i class="fas fa-chart-bar"></i> Top Values</div>';
+            html += '<table class="data-table" style="width:100%;font-size:.78rem;"><thead><tr><th>Value</th><th>Count</th><th>%</th></tr></thead><tbody>';
+            p.top_values.forEach(function(v){
+                html += '<tr><td>' + _esc(v.value) + '</td><td>' + v.count + '</td><td>' + v.pct + '%</td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+
+        // Sample
+        if (p.sample && p.sample.length > 0) {
+            html += '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-top:12px;margin-bottom:6px;"><i class="fas fa-database"></i> Sample Data</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+            p.sample.forEach(function(s){ html += '<span class="dc-badge dc-badge-success" style="font-size:.72rem;">' + _esc(s) + '</span>'; });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        document.getElementById('dc-profile-body').innerHTML = html;
+        document.getElementById('dc-profile-modal').classList.add('open');
+    }
+
+    // ═══ Before/After ═══
+    function showBeforeAfter() {
+        fetch(BASE + '/before-after/' + FILENAME)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.ok) { showToast(d.error || 'Gagal memuat data.', 'error'); return; }
+                _renderBeforeAfter(d);
+            })
+            .catch(function(e){ showToast('Error: ' + e.message, 'error'); });
+    }
+
+    function _renderBeforeAfter(d) {
+        var s = d.summary;
+        var html = '<div style="padding:20px 24px;">';
+        html += '<h3 style="margin:0 0 16px;font-size:1rem;font-weight:800;color:var(--text);"><i class="fas fa-left-right text-blue"></i> Before/After Comparison</h3>';
+
+        // Summary diff
+        html += '<div class="dc-diff-grid" style="margin-bottom:18px;">';
+        var items = [
+            {label:'Rows', before:s.rows_before, after:s.rows_after},
+            {label:'Columns', before:s.cols_before, after:s.cols_after},
+            {label:'Missing', before:s.missing_before, after:s.missing_after},
+        ];
+        items.forEach(function(it){
+            var diff = it.after - it.before;
+            var sign = diff > 0 ? '+' : '';
+            var cls = diff < 0 ? 'negative' : (diff > 0 ? 'positive' : '');
+            html += '<div class="dc-diff-card"><span class="dc-diff-label">' + it.label + '</span><span class="dc-diff-value">' + it.before + ' → ' + it.after + '</span><span class="dc-diff-change ' + cls + '">' + sign + diff + '</span></div>';
+        });
+        html += '</div>';
+
+        // Toggle tabs
+        html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+        html += '<button onclick="document.getElementById\(\'' + 'ba-before-wrap' + '\'\).style.display=\'block\';document.getElementById\(\'' + 'ba-after-wrap' + '\'\).style.display=\'none\';" style="padding:7px 16px;border-radius:8px;border:1px solid var(--orange);background:var(--orange);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;">Before (Raw)</button>';
+        html += '<button onclick="document.getElementById\(\'' + 'ba-before-wrap' + '\'\).style.display=\'none\';document.getElementById\(\'' + 'ba-after-wrap' + '\'\).style.display=\'block\';" style="padding:7px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;">After (Clean)</button>';
+        html += '</div>';
+
+        html += '<div id="ba-before-wrap"><div style="font-size:.78rem;font-weight:700;color:var(--orange);margin-bottom:6px;">BEFORE (Raw Data)</div><div class="table-scroll-wrapper" style="max-height:300px;">' + d.before_html + '</div></div>';
+        html += '<div id="ba-after-wrap" style="display:none;"><div style="font-size:.78rem;font-weight:700;color:var(--green);margin-bottom:6px;">AFTER (Cleaned Data)</div><div class="table-scroll-wrapper" style="max-height:300px;">' + d.after_html + '</div></div>';
+        html += '</div>';
+
+        document.getElementById('dc-beforeafter-body').innerHTML = html;
+        document.getElementById('dc-beforeafter-modal').classList.add('open');
+    }
+
+    // ═══ Steps Summary ═══
+    function showStepsSummary() {
+        fetch(BASE + '/steps-summary/' + FILENAME)
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (!d.ok) { showToast(d.error || 'Gagal memuat data.', 'error'); return; }
+                _renderStepsSummary(d);
+            })
+            .catch(function(e){ showToast('Error: ' + e.message, 'error'); });
+    }
+
+    function _renderStepsSummary(d) {
+        var imp = d.impact;
+        var html = '<div style="padding:20px 24px;">';
+        html += '<h3 style="margin:0 0 16px;font-size:1rem;font-weight:800;color:var(--text);"><i class="fas fa-list-check text-purple"></i> Cleaning Steps Summary</h3>';
+
+        // Impact cards
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;">';
+        html += '<div class="dc-stat-card"><span class="dc-stat-label"><i class="fas fa-list-ol"></i> Total Steps</span><span class="dc-stat-value">' + imp.total_steps + '</span></div>';
+        var rowsSign = imp.rows_changed > 0 ? '+' : '';
+        html += '<div class="dc-stat-card ' + (imp.rows_changed < 0 ? 'has-issue' : 'all-good') + '"><span class="dc-stat-label"><i class="fas fa-arrow-right"></i> Rows Changed</span><span class="dc-stat-value">' + rowsSign + imp.rows_changed + '</span></div>';
+        html += '<div class="dc-stat-card"><span class="dc-stat-label"><i class="fas fa-columns"></i> Cols Changed</span><span class="dc-stat-value">' + imp.cols_changed + '</span></div>';
+        var missSign = imp.missing_changed > 0 ? '+' : '';
+        html += '<div class="dc-stat-card ' + (imp.missing_changed < 0 ? 'all-good' : (imp.missing_changed > 0 ? 'has-issue' : '')) + '"><span class="dc-stat-label"><i class="fas fa-question-circle"></i> Missing Changed</span><span class="dc-stat-value">' + missSign + imp.missing_changed + '</span></div>';
+        html += '</div>';
+
+        // Steps timeline
+        html += '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:10px;">Timeline</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+        d.steps.forEach(function(step, i){
+            var dotColor = step.is_current ? 'var(--green)' : 'var(--blue)';
+            html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
+            html += '<div style="display:flex;flex-direction:column;align-items:center;">';
+            html += '<div style="width:12px;height:12px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;"></div>';
+            if (i < d.steps.length - 1) html += '<div style="width:2px;height:24px;background:var(--border);"></div>';
+            html += '</div>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-size:.82rem;font-weight:600;color:var(--text);">' + _esc(step.label) + (step.is_current ? ' <span class="dc-badge dc-badge-success" style="font-size:.65rem;">Current</span>' : '') + '</div>';
+            html += '<div style="font-size:.7rem;color:var(--muted);">' + step.rows + ' baris · ' + step.cols + ' kolom · ' + step.missing + ' missing</div>';
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+
+        document.getElementById('dc-steps-body').innerHTML = html;
+        document.getElementById('dc-steps-modal').classList.add('open');
+    }
+
+    // ═══ Presets ═══
+    function _getPresets() {
+        try { return JSON.parse(localStorage.getItem('dc_cleaning_presets') || '{}'); } catch(e) { return {}; }
+    }
+    function _savePresets(obj) { localStorage.setItem('dc_cleaning_presets', JSON.stringify(obj)); }
+
+    function _loadPresetList() {
+        var sel = document.getElementById('preset-select');
+        if (!sel) return;
+        var presets = _getPresets();
+        sel.innerHTML = '<option value="">— Pilih Preset —</option>';
+        Object.keys(presets).forEach(function(name){
+            var opt = document.createElement('option');
+            opt.value = name; opt.textContent = name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function loadPreset() {
+        var name = document.getElementById('preset-select').value;
+        if (!name) { showToast('Pilih preset terlebih dahulu.', 'warning'); return; }
+        var presets = _getPresets();
+        var p = presets[name];
+        if (!p) return;
+        // Apply preset values to UI
+        if (p.inconsistency_method) { var el = document.getElementById('inconsistencies-method'); if (el) el.value = p.inconsistency_method; }
+        if (p.outlier_method) { var el = document.getElementById('outlier-method'); if (el) el.value = p.outlier_method; }
+        if (p.outlier_action) { var el = document.getElementById('outlier-action'); if (el) el.value = p.outlier_action; }
+        if (p.norm_method) { var el = document.getElementById('norm-method'); if (el) el.value = p.norm_method; }
+        showToast('Preset "' + name + '" berhasil diload!', 'success');
+    }
+
+    function savePreset() {
+        var name = document.getElementById('preset-name').value.trim();
+        if (!name) { showToast('Masukkan nama preset.', 'warning'); return; }
+        var preset = {
+            inconsistency_method: document.getElementById('inconsistencies-method')?.value || 'all',
+            outlier_method: document.getElementById('outlier-method')?.value || 'iqr',
+            outlier_action: document.getElementById('outlier-action')?.value || 'cap',
+            norm_method: document.getElementById('norm-method')?.value || 'minmax',
+        };
+        var presets = _getPresets();
+        presets[name] = preset;
+        _savePresets(presets);
+        _loadPresetList();
+        showToast('Preset "' + name + '" berhasil disimpan!', 'success');
+    }
+
+    function deletePreset() {
+        var name = document.getElementById('preset-select').value;
+        if (!name) { showToast('Pilih preset yang ingin dihapus.', 'warning'); return; }
+        if (!confirm('Hapus preset "' + name + '"?')) return;
+        var presets = _getPresets();
+        delete presets[name];
+        _savePresets(presets);
+        _loadPresetList();
+        showToast('Preset "' + name + '" dihapus.', 'warning');
+    }
+
+    return { togglePanel:togglePanel, preview:preview, closePreview:closePreview, apply:apply, applyQuick:applyQuick, autoClean:autoClean, undoLast:undoLast, undoToFromUI:undoToFromUI, confirmReset:confirmReset, refreshQuality:refreshQuality, showColumnProfile:showColumnProfile, showBeforeAfter:showBeforeAfter, showStepsSummary:showStepsSummary, loadPreset:loadPreset, savePreset:savePreset, deletePreset:deletePreset, init:init };
 })();
 </script>
 

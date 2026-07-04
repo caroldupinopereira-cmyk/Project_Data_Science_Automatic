@@ -21,6 +21,7 @@ Operations yang didukung:
 ─────────────────────────────────────────────────────────────────────────────
 """
 
+import os
 import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
@@ -184,6 +185,128 @@ class CleaningSession:
             'cols_now': len(self.df_raw.columns),
         }
 
+    # ── Auto Clean (batch) ──────────────────────────────────────────────────
+
+    def auto_clean(self, options: dict = None) -> dict:
+        """
+        Jalankan beberapa langkah cleaning sekaligus secara otomatis.
+
+        Parameters
+        ----------
+        options : dict (opsional)
+            strip_whitespace      : bool (default True)
+            empty_to_nan          : bool (default True)
+            drop_duplicates       : bool (default True)
+            drop_high_missing     : float (default 0.5) — threshold 0-1, 0 = off
+            fill_missing_numeric  : str ('median'|'mean'|'none', default 'median')
+            fill_missing_categorical : str ('mode'|'none', default 'mode')
+            remove_outliers       : bool (default False)
+            outlier_method        : str ('iqr'|'zscore', default 'iqr')
+            outlier_action        : str ('cap'|'remove', default 'cap')
+            fix_inconsistencies   : bool (default True)
+            inconsistency_method  : str ('strip'|'lower'|'title', default 'strip')
+
+        Returns
+        -------
+        dict dengan keys: ok, steps_applied, summary, history, quality, rows_now, cols_now
+        """
+        opts = {
+            'strip_whitespace'          : True,
+            'empty_to_nan'              : True,
+            'drop_duplicates'           : True,
+            'drop_high_missing'         : 0.5,
+            'fill_missing_numeric'      : 'median',
+            'fill_missing_categorical'  : 'mode',
+            'remove_outliers'           : False,
+            'outlier_method'            : 'iqr',
+            'outlier_action'            : 'cap',
+            'fix_inconsistencies'       : True,
+            'inconsistency_method'      : 'all',
+        }
+        if options:
+            opts.update(options)
+
+        df_before_all = self.df_current.copy()
+        steps_applied = []
+        all_logs = []
+
+        # Step 1: Strip whitespace
+        if opts['strip_whitespace']:
+            result = self.apply_step('strip_whitespace', {})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 2: Empty string → NaN
+        if opts['empty_to_nan']:
+            result = self.apply_step('empty_to_nan', {})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 3: Drop high-missing columns
+        threshold = float(opts.get('drop_high_missing') or 0)
+        if threshold > 0:
+            result = self.apply_step('drop_high_missing', {'threshold': threshold})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 4: Fix inconsistencies
+        if opts['fix_inconsistencies']:
+            result = self.apply_step('fix_inconsistencies', {'method': opts['inconsistency_method']})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 5: Drop duplicates
+        if opts['drop_duplicates']:
+            result = self.apply_step('drop_duplicates', {})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 6: Fill missing numeric
+        fill_num = opts.get('fill_missing_numeric', 'none')
+        if fill_num in ('mean', 'median'):
+            result = self.apply_step('handle_missing', {'method': fill_num, 'scope': 'numeric'})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 7: Fill missing categorical
+        fill_cat = opts.get('fill_missing_categorical', 'none')
+        if fill_cat == 'mode':
+            result = self.apply_step('handle_missing', {'method': 'mode', 'scope': 'categorical'})
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Step 8: Remove outliers (opsional)
+        if opts.get('remove_outliers'):
+            result = self.apply_step('remove_outliers', {
+                'method': opts['outlier_method'],
+                'action': opts['outlier_action'],
+            })
+            if result.get('ok'):
+                steps_applied.append({'label': result['label'], 'summary': result['summary']})
+                all_logs.extend(result['summary'].get('log', []))
+
+        # Build combined summary
+        df_after_all = self.df_current
+        summary = self._build_summary(df_before_all, df_after_all, all_logs)
+
+        return {
+            'ok'           : True,
+            'steps_applied': steps_applied,
+            'total_steps'  : len(steps_applied),
+            'summary'      : summary,
+            'history'      : self.history_labels,
+            'quality'      : get_quality_report(df_after_all),
+            'rows_now'     : len(df_after_all),
+            'cols_now'     : len(df_after_all.columns),
+        }
+
     # ── Preview (tanpa apply) ─────────────────────────────────────────────────
 
     def preview_step(self, op_type: str, op_params: dict) -> dict:
@@ -273,6 +396,73 @@ def delete_session(filename: str):
     _sessions.pop(filename, None)
 
 
+# ─── Disk persistence ─────────────────────────────────────────────────────────
+
+import pickle as _pickle
+
+SESSIONS_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'sessions')
+
+
+def save_cleaned_to_disk(session_key: str, cleaned_dir: str):
+    """Simpan cleaned df dari session ke cleaned_dir."""
+    sess = _sessions.get(session_key)
+    if not sess or not sess.is_cleaned:
+        return False
+    os.makedirs(cleaned_dir, exist_ok=True)
+    out_path = os.path.join(cleaned_dir, sess.filename)
+    sess.df_current.to_csv(out_path, index=False)
+    return True
+
+
+def persist_session(session_key: str):
+    """Simpan session state ke disk (pickle)."""
+    try:
+        sess = _sessions.get(session_key)
+        if not sess:
+            return
+        os.makedirs(SESSIONS_DIR, exist_ok=True)
+        safe_key = session_key.replace('::', '_').replace('/', '_').replace('\\', '_')
+        data = {
+            'filename'  : sess.filename,
+            'df_raw'    : _pickle.dumps(sess.df_raw),
+            'df_current': _pickle.dumps(sess.df_current),
+            'history'   : [(_pickle.dumps(s.df), s.label, s.op_type, s.op_params) for s in sess._history],
+            'is_cleaned': sess.is_cleaned,
+        }
+        with open(os.path.join(SESSIONS_DIR, f"{safe_key}.pkl"), 'wb') as f:
+            _pickle.dump(data, f)
+    except Exception:
+        pass
+
+
+def load_session_from_disk(session_key: str):
+    """Load session dari disk jika ada. Return CleaningSession atau None."""
+    try:
+        safe_key = session_key.replace('::', '_').replace('/', '_').replace('\\', '_')
+        sf = os.path.join(SESSIONS_DIR, f"{safe_key}.pkl")
+        if not os.path.exists(sf):
+            return None
+        with open(sf, 'rb') as f:
+            data = _pickle.load(f)
+        df_raw = _pickle.loads(data['df_raw'])
+        sess = CleaningSession(df_raw, data['filename'])
+        # Replace history with saved state
+        loaded_history = []
+        for df_bytes, label, op_type, op_params in data['history']:
+            df = _pickle.loads(df_bytes)
+            loaded_history.append(_Snapshot(
+                df=df, label=label, op_type=op_type, op_params=op_params,
+                summary=CleaningSession._build_summary(df, df, []),
+            ))
+        if loaded_history:
+            sess._history = loaded_history
+        sess.is_cleaned = data.get('is_cleaned', False)
+        _sessions[session_key] = sess
+        return sess
+    except Exception:
+        return None
+
+
 # ─── Operation dispatcher ─────────────────────────────────────────────────────
 
 def _dispatch_op(df: pd.DataFrame, op_type: str, params: dict):
@@ -291,6 +481,7 @@ def _dispatch_op(df: pd.DataFrame, op_type: str, params: dict):
         'empty_to_nan'       : _op_empty_to_nan,
         'fix_inconsistencies': _op_fix_inconsistencies,
         'drop_irrelevant_cols': _op_drop_irrelevant_cols,
+        'regex_replace'      : _op_regex_replace,
     }
     fn = handlers.get(op_type)
     if fn is None:
@@ -560,10 +751,22 @@ def _op_empty_to_nan(df: pd.DataFrame, params: dict):
 
 def _op_fix_inconsistencies(df: pd.DataFrame, params: dict):
     """
-    Fix text inconsistencies: strip whitespace dan/atau normalisasi casing.
+    Fix text inconsistencies: smart normalization dengan berbagai metode.
     params:
-      method: 'strip' | 'lower' | 'upper' | 'title'
+      method: 'strip' | 'lower' | 'upper' | 'title' | 'smart' | 'all'
+              'strip'  = Strip whitespace saja
+              'lower'  = Strip + Lowercase
+              'upper'  = Strip + Uppercase
+              'title'  = Strip + Title Case
+              'smart'  = Smart fix (pakai mapping gender/status/abbrev)
+              'all'    = Semua fix sekaligus (whitespace + casing + special chars)
     """
+    from .inconsistency_detector import (
+        fix_casing, fix_whitespace, fix_special_chars,
+        detect_near_duplicates, fix_near_duplicates,
+        analyze_column_inconsistencies,
+    )
+
     method = params.get('method', 'strip')
     df     = df.copy()
     log    = []
@@ -575,22 +778,64 @@ def _op_fix_inconsistencies(df: pd.DataFrame, params: dict):
         'lower' : 'Strip + Lowercase',
         'upper' : 'Strip + Uppercase',
         'title' : 'Strip + Title Case',
+        'smart' : 'Smart Normalization',
+        'all'   : 'Full Cleanup (All)',
     }
 
     for col in cols:
-        s_orig = df[col].astype(str)
+        s_orig = df[col].copy()
+        fixed_count = 0
+
         if method == 'strip':
-            df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
+            df[col] = fix_whitespace(df[col])
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
         elif method == 'lower':
-            df[col] = df[col].apply(lambda x: x.strip().lower() if isinstance(x, str) else x)
+            df[col] = fix_casing(df[col], 'lower')
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
         elif method == 'upper':
-            df[col] = df[col].apply(lambda x: x.strip().upper() if isinstance(x, str) else x)
+            df[col] = fix_casing(df[col], 'upper')
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
         elif method == 'title':
-            df[col] = df[col].apply(lambda x: x.strip().title() if isinstance(x, str) else x)
-        changed = int((df[col].astype(str) != s_orig).sum())
-        if changed:
-            log.append(f'{col}: {changed} nilai diperbaiki ({method_labels.get(method, method)})')
-            total_fixed += changed
+            df[col] = fix_casing(df[col], 'title')
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
+        elif method == 'smart':
+            # Smart: detect what type of inconsistency and fix accordingly
+            analysis = analyze_column_inconsistencies(df[col], col)
+            issue_types = analysis.get('issue_types', [])
+
+            # Apply whitespace fix first
+            df[col] = fix_whitespace(df[col])
+
+            # Apply casing fix (smart mode)
+            if 'casing' in issue_types or 'near_duplicates' in issue_types:
+                df[col] = fix_casing(df[col], 'smart')
+
+            # Apply special char fix
+            if 'special_chars' in issue_types:
+                df[col] = fix_special_chars(df[col])
+
+            # Fix near duplicates if detected
+            if 'near_duplicates' in issue_types:
+                nd = analysis['issues']['near_duplicates']
+                if nd.get('groups'):
+                    df[col] = fix_near_duplicates(df[col], nd['groups'])
+
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
+        elif method == 'all':
+            # Full cleanup: whitespace → special chars → casing (title)
+            df[col] = fix_whitespace(df[col])
+            df[col] = fix_special_chars(df[col])
+            df[col] = fix_casing(df[col], 'title')
+            fixed_count = int((df[col].astype(str) != s_orig.astype(str)).sum())
+
+        if fixed_count:
+            log.append(f'{col}: {fixed_count} nilai diperbaiki ({method_labels.get(method, method)})')
+            total_fixed += fixed_count
 
     if not log:
         log.append('Tidak ada inkonsistensi teks yang ditemukan pada kolom yang dipilih.')
@@ -652,6 +897,62 @@ def _op_drop_irrelevant_cols(df: pd.DataFrame, params: dict):
     return df, label, log
 
 
+def _op_regex_replace(df: pd.DataFrame, params: dict):
+    """
+    Regex find & replace pada kolom teks.
+    params:
+      pattern     : str — regex pattern untuk dicari
+      replacement : str — pengganti (bisa pakai backreference \1, \2)
+      columns     : list — kolom target (default: semua kolom teks)
+      scope       : str — 'all' | 'select' | 'numeric' | 'categorical'
+      case_insensitive : bool (default True)
+    """
+    import re as re_module
+    pattern     = params.get('pattern', '')
+    replacement = params.get('replacement', '')
+    columns     = params.get('columns') or []
+    scope       = params.get('scope', 'all')
+    case_ignore = params.get('case_insensitive', True)
+
+    df = df.copy()
+    log = []
+    total_replaced = 0
+
+    if not pattern:
+        return df, 'Regex Replace: Tidak ada pattern', ['Pattern tidak boleh kosong.']
+
+    # Tentukan kolom target
+    if columns:
+        target_cols = [c for c in columns if c in df.columns]
+    elif scope == 'numeric':
+        target_cols = df.select_dtypes(include='number').columns.tolist()
+    elif scope == 'categorical':
+        target_cols = df.select_dtypes(include=['object', 'category', 'string']).columns.tolist()
+    else:
+        target_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
+
+    flags = re_module.IGNORECASE if case_ignore else 0
+
+    for col in target_cols:
+        s_orig = df[col].copy()
+        try:
+            df[col] = df[col].apply(
+                lambda x: re_module.sub(pattern, replacement, str(x), flags=flags)
+                if pd.notna(x) and isinstance(x, str) else x
+            )
+            changed = int((df[col].astype(str) != s_orig.astype(str)).sum())
+            if changed:
+                log.append(f'{col}: {changed} nilai direplace dengan regex')
+                total_replaced += changed
+        except re_module.error as e:
+            log.append(f'{col}: Error regex — {str(e)}')
+
+    if not log:
+        log.append(f'Tidak ada nilai yang cocok dengan pattern "{pattern}".')
+    label = f'Regex Replace — {total_replaced} nilai direplace'
+    return df, label, log
+
+
 # ─── Quality Report ───────────────────────────────────────────────────────────
 
 def get_quality_report(df: pd.DataFrame) -> dict:
@@ -661,7 +962,10 @@ def get_quality_report(df: pd.DataFrame) -> dict:
       summary    : dict ringkasan global
       columns    : list[dict] per kolom
       warnings   : list[str] peringatan utama
+      inconsistency_details : dict detail inkonsistensi per kolom
     """
+    from .inconsistency_detector import analyze_column_inconsistencies
+
     total_rows  = len(df)
     total_cols  = len(df.columns)
     total_cells = df.size
@@ -669,16 +973,20 @@ def get_quality_report(df: pd.DataFrame) -> dict:
     duplicate_rows  = int(df.duplicated().sum())
     missing_pct     = round(missing_cells / total_cells * 100, 2) if total_cells else 0
 
-    # Inconsistencies: object cols dengan mixed casing / leading-trailing spaces
+    # ── Advanced Inconsistency Detection ──────────────────────────────────────
+    text_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
     inconsistency_count = 0
-    for col in df.select_dtypes(include=['object', 'string']).columns:
-        s = df[col].dropna().astype(str)
-        if (s != s.str.strip()).any():
-            inconsistency_count += 1
-        elif (s != s.str.lower()) .any() and (s != s.str.upper()).any():
-            inconsistency_count += 1  # mixed case
+    inconsistency_details = {}
+    total_inconsistency_values = 0
 
-    # Outliers (IQR) global count
+    for col in text_cols:
+        analysis = analyze_column_inconsistencies(df[col], col)
+        if analysis['total_issues'] > 0:
+            inconsistency_count += 1
+            inconsistency_details[col] = analysis
+            total_inconsistency_values += analysis['total_issues']
+
+    # ── Outliers (IQR) global count ────────────────────────────────────────────
     total_outliers = 0
     for col in df.select_dtypes(include='number').columns:
         s = df[col].dropna()
@@ -721,7 +1029,7 @@ def get_quality_report(df: pd.DataFrame) -> dict:
     if total_outliers > 0:
         warnings.append(f'{total_outliers} outlier terdeteksi (metode IQR)')
     if inconsistency_count > 0:
-        warnings.append(f'{inconsistency_count} kolom memiliki inkonsistensi format teks')
+        warnings.append(f'{inconsistency_count} kolom memiliki inkonsistensi format teks ({total_inconsistency_values} nilai terdampak)')
     if irrelevant_count > 0:
         warnings.append(f'{irrelevant_count} kolom kemungkinan tidak relevan (ID/free text)')
 
@@ -748,6 +1056,25 @@ def get_quality_report(df: pd.DataFrame) -> dict:
                 issues.append('Empty strings')
             if (series.dropna().astype(str) != series.dropna().astype(str).str.strip()).any():
                 issues.append('Whitespace issues')
+
+        # Check inconsistency details for this column
+        if col in inconsistency_details:
+            detail = inconsistency_details[col]
+            for itype in detail.get('issue_types', []):
+                if itype == 'casing':
+                    issues.append('Mixed casing')
+                elif itype == 'numeric_as_string':
+                    issues.append('Numbers stored as text')
+                elif itype == 'date_like':
+                    issues.append('Date-like strings')
+                elif itype == 'boolean_like':
+                    issues.append('Boolean-like values')
+                elif itype == 'mixed_types':
+                    issues.append('Mixed data types')
+                elif itype == 'near_duplicates':
+                    issues.append('Near-duplicate values')
+                elif itype == 'number_format':
+                    issues.append('Inconsistent number format')
 
         # Outliers per numeric col
         col_outliers = 0
@@ -791,6 +1118,7 @@ def get_quality_report(df: pd.DataFrame) -> dict:
         },
         'columns'  : columns_detail,
         'warnings' : warnings,
+        'inconsistency_details' : inconsistency_details,
     }
 
 
@@ -808,6 +1136,8 @@ def detect_data_status(df) -> str:
       'clean'               — Fully clean: no missing, no duplicates, no irrelevant cols,
                               no inconsistencies, no outliers.
     """
+    from .inconsistency_detector import analyze_column_inconsistencies
+
     total_rows = len(df)
     if total_rows == 0:
         return 'clean'
@@ -816,13 +1146,13 @@ def detect_data_status(df) -> str:
     missing_cells  = int(df.isna().sum().sum())
     duplicate_rows = int(df.duplicated().sum())
 
-    # Text inconsistencies: leading/trailing whitespace or mixed casing
+    # ── Advanced Text Inconsistency Detection ──────────────────────────────────
+    text_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
     inconsistency_count = 0
-    for col in df.select_dtypes(include=['object', 'string']).columns:
-        s = df[col].dropna().astype(str)
-        if (s != s.str.strip()).any():
-            inconsistency_count += 1
-        elif (s != s.str.lower()).any() and (s != s.str.upper()).any():
+
+    for col in text_cols:
+        analysis = analyze_column_inconsistencies(df[col], col)
+        if analysis['total_issues'] > 0:
             inconsistency_count += 1
 
     # Irrelevant columns: zero variance (constant) or near-unique ID columns
