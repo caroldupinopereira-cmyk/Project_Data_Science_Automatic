@@ -218,6 +218,114 @@
     from { transform: translateY(0); opacity: 1; }
     to { transform: translateY(-30px); opacity: 0; }
 }
+
+/* ── AI Chat ── */
+#chat-messages {
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 200px;
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    border: 1px solid var(--border);
+}
+#chat-messages:empty { display:flex; align-items:center; justify-content:center; }
+#chat-messages:empty::after {
+    content: 'Belum ada pesan. Mulai percakapan!';
+    color: var(--muted);
+    font-size: .82rem;
+    font-style: italic;
+}
+.chat-msg {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    animation: chatIn .3s ease;
+    max-width: 88%;
+}
+.chat-msg.user {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+}
+.chat-msg.bot {
+    align-self: flex-start;
+}
+.chat-avatar {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}
+.chat-msg.bot .chat-avatar {
+    background: linear-gradient(135deg, #868cff, #4318ff);
+}
+.chat-msg.user .chat-avatar {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+.chat-bubble {
+    padding: 11px 16px;
+    border-radius: 14px;
+    font-size: .84rem;
+    line-height: 1.7;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+.chat-msg.bot .chat-bubble {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.chat-msg.user .chat-bubble {
+    background: linear-gradient(135deg, #868cff, #4318ff);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(67,24,255,.18);
+}
+.chat-msg.user .chat-bubble a { color: rgba(255,255,255,.85); text-decoration:underline; }
+.chat-bubble.typing {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-bottom-left-radius: 4px;
+    padding: 14px 18px;
+    min-width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+@keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: .4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+@keyframes chatIn {
+    from { opacity: 0; transform: translateY(8px) scale(.97); }
+    to { opacity: 1; transform: none; }
+}
+
+/* ── Skeleton Loading ── */
+@keyframes skeletonPulse {
+    0% { background: var(--border); }
+    50% { background: rgba(134,140,255,.12); }
+    100% { background: var(--border); }
+}
+.interp-skeleton { background: var(--border); }
+
+/* ── Chat scrollbar ── */
+#chat-messages::-webkit-scrollbar { width: 4px; }
+#chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 </style>
 
 
@@ -2730,6 +2838,153 @@ var DCleaning = (function () {
   </div>
 </div>
 
+<!-- ══════════════ TAB 10: INTERPRETATION & AI ══════════════ -->
+<div id="tab-interpretation" class="tab-content" style="display:none;">
+    <!-- Hero Banner -->
+    <div style="background:linear-gradient(135deg, rgba(134,140,255,.08) 0%, rgba(67,24,255,.04) 100%);border-radius:16px;padding:28px 32px;margin-bottom:24px;border:1px solid rgba(134,140,255,.15);">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#868cff,#4318ff);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;flex-shrink:0;">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <h2 style="font-size:1.15rem;font-weight:800;margin:0 0 4px;color:var(--text);" data-translate="interp_title">Interpretation &amp; AI</h2>
+                <p style="margin:0;font-size:.82rem;color:var(--muted);line-height:1.5;" data-translate="interp_subtitle">AI-powered analysis, summary, recommendations, and decision support for your dataset.</p>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <select id="interp-lang" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;">
+                    <option value="id">🇮🇩 Indonesia</option>
+                    <option value="en">🌐 English</option>
+                </select>
+                <button id="interp-generate-btn" onclick="generateInterpretation()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border:none;border-radius:10px;background:linear-gradient(135deg,#868cff,#4318ff);color:#fff;font-weight:700;font-size:.82rem;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(67,24,255,.25);transition:all .2s;">
+                    <i class="fas fa-wand-magic-sparkles"></i> <span data-translate="interp_generate">Generate Interpretation</span>
+                </button>
+                <button id="interp-regenerate-btn" onclick="generateInterpretation()" style="display:none;align-items:center;gap:7px;padding:10px 18px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);color:var(--text);font-weight:600;font-size:.8rem;cursor:pointer;font-family:inherit;transition:all .2s;">
+                    <i class="fas fa-rotate"></i> <span data-translate="interp_regenerate">Regenerate</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Skeleton -->
+    <div id="interp-loading" style="display:none;">
+        <div style="background:var(--card-bg);border-radius:14px;border:1px solid var(--border);padding:24px 28px;margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#868cff,#4318ff);display:flex;align-items:center;justify-content:center;color:#fff;font-size:.85rem;"><i class="fas fa-spinner fa-spin"></i></div>
+                <div>
+                    <div style="font-weight:700;font-size:.88rem;color:var(--text);" data-translate="interp_loading_title">AI Sedang Menganalisis Dataset</div>
+                    <div style="font-size:.75rem;color:var(--muted);margin-top:2px;" data-translate="interp_loading_desc">Memproses statistik dan menghasilkan insight...</div>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div class="interp-skeleton" style="height:14px;width:100%;border-radius:6px;animation:skeletonPulse 1.5s infinite;"></div>
+                <div class="interp-skeleton" style="height:14px;width:85%;border-radius:6px;animation:skeletonPulse 1.5s infinite;animation-delay:.1s;"></div>
+                <div class="interp-skeleton" style="height:14px;width:70%;border-radius:6px;animation:skeletonPulse 1.5s infinite;animation-delay:.2s;"></div>
+                <div class="interp-skeleton" style="height:14px;width:90%;border-radius:6px;animation:skeletonPulse 1.5s infinite;animation-delay:.15s;"></div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+            <div class="interp-skeleton" style="height:200px;border-radius:14px;animation:skeletonPulse 1.5s infinite;animation-delay:.3s;"></div>
+            <div class="interp-skeleton" style="height:200px;border-radius:14px;animation:skeletonPulse 1.5s infinite;animation-delay:.4s;"></div>
+        </div>
+        <div class="interp-skeleton" style="height:120px;border-radius:14px;animation:skeletonPulse 1.5s infinite;animation-delay:.5s;"></div>
+    </div>
+
+    <!-- Error / No API Key -->
+    <div id="interp-no-key" style="display:none;padding:28px 24px;border-radius:14px;background:rgba(255,193,7,.06);border:1px solid rgba(255,193,7,.2);margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,193,7,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas fa-key" style="font-size:1.15rem;color:#f59e0b;"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:.88rem;color:var(--text);margin-bottom:3px;" data-translate="interp_no_key_title">AI API Key Belum Dikonfigurasi</div>
+                <p style="margin:0;font-size:.8rem;color:var(--muted);line-height:1.5;" data-translate="interp_no_key_desc">Silakan atur API key AI di file .env (AI_PROVIDER, GEMINI_API_KEY, dll) lalu restart server.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="interp-error" style="display:none;padding:16px 20px;border-radius:12px;background:rgba(238,93,80,.07);border:1px solid rgba(238,93,80,.18);margin-bottom:18px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <i class="fas fa-exclamation-circle" style="color:var(--red);font-size:1rem;"></i>
+            <span id="interp-error-text" style="color:var(--red);font-weight:600;font-size:.84rem;"></span>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="interp-results" style="display:none;">
+
+        <!-- Summary -->
+        <div style="background:var(--card-bg);border-radius:14px;border:1px solid var(--border);border-left:4px solid var(--blue);margin-bottom:18px;overflow:hidden;">
+            <div style="padding:20px 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="width:28px;height:28px;border-radius:8px;background:rgba(67,24,255,.1);display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:.78rem;"><i class="fas fa-align-left"></i></div>
+                    <h3 style="font-size:.92rem;font-weight:700;margin:0;color:var(--text);" data-translate="interp_summary">Ringkasan Eksekutif</h3>
+                    <button id="interp-copy-summary" onclick="copyText('interp-summary-text')" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:4px 8px;border-radius:6px;font-family:inherit;" title="Copy to clipboard"><i class="fas fa-copy"></i></button>
+                </div>
+                <div id="interp-summary-text" style="font-size:.86rem;line-height:1.75;color:var(--text);white-space:pre-line;"></div>
+            </div>
+        </div>
+
+        <!-- Grid: Key Findings + Recommendations -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+            <!-- Key Findings -->
+            <div style="background:var(--card-bg);border-radius:14px;border:1px solid var(--border);border-left:4px solid #f59e0b;overflow:hidden;">
+                <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+                    <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,.1);display:flex;align-items:center;justify-content:center;color:#f59e0b;font-size:.78rem;"><i class="fas fa-search"></i></div>
+                    <h3 style="font-size:.9rem;font-weight:700;margin:0;color:var(--text);" data-translate="interp_findings">Key Findings</h3>
+                </div>
+                <div style="padding:16px 20px;">
+                    <div id="interp-findings-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+                </div>
+            </div>
+            <!-- Recommendations -->
+            <div style="background:var(--card-bg);border-radius:14px;border:1px solid var(--border);border-left:4px solid #10b981;overflow:hidden;">
+                <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+                    <div style="width:28px;height:28px;border-radius:8px;background:rgba(16,185,129,.1);display:flex;align-items:center;justify-content:center;color:#10b981;font-size:.78rem;"><i class="fas fa-list-check"></i></div>
+                    <h3 style="font-size:.9rem;font-weight:700;margin:0;color:var(--text);" data-translate="interp_recommendations">Rekomendasi &amp; Saran</h3>
+                </div>
+                <div style="padding:16px 20px;">
+                    <div id="interp-recs-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conclusion -->
+        <div style="background:var(--card-bg);border-radius:14px;border:1px solid var(--border);border-left:4px solid #868cff;margin-bottom:24px;overflow:hidden;">
+            <div style="padding:20px 24px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="width:28px;height:28px;border-radius:8px;background:rgba(134,140,255,.1);display:flex;align-items:center;justify-content:center;color:#868cff;font-size:.78rem;"><i class="fas fa-flag-checkered"></i></div>
+                    <h3 style="font-size:.92rem;font-weight:700;margin:0;color:var(--text);" data-translate="interp_conclusion">Kesimpulan &amp; Pengambilan Keputusan</h3>
+                    <button id="interp-copy-conclusion" onclick="copyText('interp-conclusion-text')" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.78rem;padding:4px 8px;border-radius:6px;font-family:inherit;" title="Copy to clipboard"><i class="fas fa-copy"></i></button>
+                </div>
+                <div id="interp-conclusion-text" style="font-size:.86rem;line-height:1.75;color:var(--text);white-space:pre-line;"></div>
+            </div>
+        </div>
+
+        <!-- AI Chat -->
+        <div class="card" style="overflow:hidden;">
+            <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+                <div style="width:30px;height:30px;border-radius:8px;background:rgba(67,24,255,.1);display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:.82rem;"><i class="fas fa-comments"></i></div>
+                <span style="font-weight:700;font-size:.88rem;color:var(--text);" data-translate="interp_chat_title">AI Chat Assistant</span>
+                <span style="font-size:.62rem;padding:3px 10px;border-radius:20px;background:rgba(16,185,129,.1);color:#10b981;font-weight:700;margin-left:auto;text-transform:uppercase;letter-spacing:.3px;"><i class="fas fa-robot"></i> Online</span>
+            </div>
+            <div style="padding:16px 20px;">
+                <div id="chat-messages">
+                    <div class="chat-msg bot">
+                        <div class="chat-avatar"><i class="fas fa-robot"></i></div>
+                        <div class="chat-bubble" data-translate="interp_chat_welcome">Halo! Saya AI Assistant. Tanyakan apapun tentang dataset ini, atau minta saran analisis lebih lanjut.</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <input id="ai-input" type="text" style="flex:1;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.84rem;font-family:inherit;outline:none;transition:border-color .2s;" placeholder="Tanyakan sesuatu tentang dataset..." data-translate="interp_chat_placeholder" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor=''">
+                    <button onclick="sendAIMessage()" style="padding:12px 22px;border:none;border-radius:12px;background:linear-gradient(135deg,#868cff,#4318ff);color:#fff;font-weight:700;font-size:.84rem;cursor:pointer;font-family:inherit;transition:all .2s;box-shadow:0 3px 10px rgba(67,24,255,.2);">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 /* ── Report Tab: Render overview charts & date badge ── */
 (function() {
@@ -3037,6 +3292,7 @@ window.switchTab = function(tab) {
         setTimeout(function(){ if(typeof TablePagination!=='undefined') TablePagination.initAll(); }, 80);
     }
     if (tab==='report')   { setTimeout(function(){ if(typeof window._renderReportTab==='function') window._renderReportTab(); }, 80); }
+    if (tab==='interpretation') { setTimeout(function(){ if(typeof window._renderInterpTab==='function') window._renderInterpTab(); }, 80); }
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3060,20 +3316,196 @@ window.addEventListener('resize', function(){
     }, 200);
 });
 
+/* ═══════════════════════════════════════════════════
+   INTERPRETATION & AI
+═══════════════════════════════════════════════════ */
+function generateInterpretation() {
+    var btn = document.getElementById('interp-generate-btn');
+    var reBtn = document.getElementById('interp-regenerate-btn');
+    var loading = document.getElementById('interp-loading');
+    var results = document.getElementById('interp-results');
+    var noKey = document.getElementById('interp-no-key');
+    var errDiv = document.getElementById('interp-error');
+    var errText = document.getElementById('interp-error-text');
+    var lang = document.getElementById('interp-lang').value;
+
+    btn.style.display = 'none';
+    reBtn.style.display = 'none';
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    noKey.style.display = 'none';
+    errDiv.style.display = 'none';
+
+    var url = '/api/interpretation/{{ filename }}?lang=' + lang;
+    fetch(url, { method: 'POST' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            loading.style.display = 'none';
+            if (!d.ok) {
+                reBtn.style.display = 'inline-flex';
+                if (d.error === 'no_api_key') {
+                    noKey.style.display = 'block';
+                } else if (d.error === 'quota_exceeded') {
+                    errText.textContent = d.message || 'Kuota API habis. Coba lagi nanti.';
+                    errDiv.style.display = 'block';
+                } else {
+                    errText.textContent = d.error || 'Gagal menghasilkan interpretasi.';
+                    errDiv.style.display = 'block';
+                }
+                return;
+            }
+            renderInterpretation(d.data);
+        })
+        .catch(function(e){
+            loading.style.display = 'none';
+            reBtn.style.display = 'inline-flex';
+            errText.textContent = 'Network error: ' + e.message;
+            errDiv.style.display = 'block';
+        });
+}
+
+function renderInterpretation(data) {
+    var results = document.getElementById('interp-results');
+    var reBtn = document.getElementById('interp-regenerate-btn');
+    if (!data) return;
+
+    // Summary
+    document.getElementById('interp-summary-text').textContent = data.summary || '';
+
+    // Key Findings
+    var fl = document.getElementById('interp-findings-list');
+    fl.innerHTML = '';
+    if (data.key_findings && data.key_findings.length) {
+        data.key_findings.forEach(function(f, i) {
+            var div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.12);font-size:.82rem;line-height:1.65;color:var(--text);';
+            div.innerHTML = '<span style="background:#f59e0b;color:#fff;font-weight:800;font-size:.68rem;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + (i+1) + '</span><span>' + f + '</span>';
+            fl.appendChild(div);
+        });
+    } else {
+        fl.innerHTML = '<p style="color:var(--muted);font-size:.82rem;padding:8px 0;">Tidak ada temuan spesifik.</p>';
+    }
+
+    // Recommendations
+    var rl = document.getElementById('interp-recs-list');
+    rl.innerHTML = '';
+    if (data.recommendations && data.recommendations.length) {
+        data.recommendations.forEach(function(r) {
+            var div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.12);font-size:.82rem;line-height:1.65;color:var(--text);';
+            div.innerHTML = '<div style="width:22px;height:22px;border-radius:50%;background:rgba(16,185,129,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;color:#10b981;font-size:.7rem;"><i class="fas fa-check"></i></div><span>' + r + '</span>';
+            rl.appendChild(div);
+        });
+    } else {
+        rl.innerHTML = '<p style="color:var(--muted);font-size:.82rem;padding:8px 0;">Tidak ada rekomendasi spesifik.</p>';
+    }
+
+    // Conclusion
+    document.getElementById('interp-conclusion-text').textContent = data.conclusion || '';
+
+    reBtn.style.display = 'inline-flex';
+    results.style.display = 'block';
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyText(elId) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    var text = el.textContent || el.innerText;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('Copied to clipboard!', 'success');
+        }).catch(function() {});
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied to clipboard!', 'success');
+    }
+}
+
+/* ═══════════════════════════════════════════════════
+   AI CHAT
+═══════════════════════════════════════════════════ */
 function appendChatMsg(text, role, typing) {
-    typing=typing||false;
-    var c=document.getElementById('chat-messages');
+    typing = typing || false;
+    var c = document.getElementById('chat-messages');
     if (!c) return null;
-    var d=document.createElement('div');
-    d.className='chat-msg '+role;
-    d.innerHTML='<div class="chat-avatar"><i class="fas fa-'+(role==='bot'?'robot':'user')+'"></i></div>'+
-                '<div class="chat-bubble'+(typing?' typing':'')+'">'+text+'</div>';
-    c.appendChild(d); c.scrollTop=c.scrollHeight;
+    var d = document.createElement('div');
+    d.className = 'chat-msg ' + role;
+    d.innerHTML = '<div class="chat-avatar"><i class="fas fa-' + (role === 'bot' ? 'robot' : 'user') + '"></i></div>' +
+                '<div class="chat-bubble' + (typing ? ' typing' : '') + '">' + text + '</div>';
+    c.appendChild(d); c.scrollTop = c.scrollHeight;
     return d;
 }
 
-var _aiInput=document.getElementById('ai-input');
-if (_aiInput) _aiInput.addEventListener('keypress', function(e){ if(e.key==='Enter') sendAIMessage(); });
+function sendAIMessage() {
+    var input = document.getElementById('ai-input');
+    var msg = input.value.trim();
+    if (!msg) return;
+
+    appendChatMsg(escapeHtml(msg), 'user');
+    input.value = '';
+    input.style.borderColor = '';
+
+    var typingEl = appendChatMsg('<div style="display:flex;align-items:center;gap:8px;"><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#868cff;animation:typingBounce 1.2s infinite;"></div><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#868cff;animation:typingBounce 1.2s infinite;animation-delay:.2s;"></div><div class="typing-dot" style="width:7px;height:7px;border-radius:50%;background:#868cff;animation:typingBounce 1.2s infinite;animation-delay:.4s;"></div></div>', 'bot', true);
+
+    fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: msg,
+            context: datasetContext || '',
+            filename: '{{ filename }}'
+        })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        if (typingEl) typingEl.remove();
+        if (d.reply) {
+            appendChatMsg(escapeHtml(d.reply).replace(/\n/g, '<br>'), 'bot');
+        } else if (d.error === 'quota_exceeded') {
+            appendChatMsg('⚠️ ' + escapeHtml(d.reply || 'Kuota API habis. Coba lagi nanti.'), 'bot');
+        } else {
+            appendChatMsg('Maaf, terjadi kesalahan. Silakan coba lagi.', 'bot');
+        }
+    })
+    .catch(function(e){
+        if (typingEl) typingEl.remove();
+        appendChatMsg('Error: ' + escapeHtml(e.message), 'bot');
+    });
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+
+// Bind AI input enter key
+document.addEventListener('DOMContentLoaded', function() {
+    var _aiInput = document.getElementById('ai-input');
+    if (_aiInput) {
+        _aiInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendAIMessage();
+        });
+    }
+});
+
+// Auto-trigger interpretation when tab is shown
+(function() {
+    var _interpRendered = false;
+    window._renderInterpTab = function() {
+        if (_interpRendered) return;
+        _interpRendered = true;
+        setTimeout(generateInterpretation, 300);
+    };
+})();
 </script>
 
 {% endblock %}

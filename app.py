@@ -1478,10 +1478,14 @@ def ai_chat():
             "Kamu adalah asisten analisis data cerdas bernama DataBot untuk aplikasi "
             "DS Generator Kelompok 2. "
             "Jawab dengan bahasa yang jelas, ringkas, dan informatif. "
+            "JANGAN gunakan markdown formatting seperti **bold**, *italic*, atau `code`. "
+            "Gunakan teks polos saja. Untuk poin-poin, gunakan tanda strip (-) biasa. "
+            "Untuk penekanan, gunakan huruf KAPITAL. "
             f"Konteks dataset saat ini: {context}"
         )
 
         from backend.ai_client import call_ai, AIClientError, QuotaExceededError
+        import re
         try:
             reply = call_ai(
                 ai_settings['provider'],
@@ -1491,6 +1495,10 @@ def ai_chat():
                 user_msg,
                 api_keys=ai_settings.get('api_keys', []),
             )
+            if reply:
+                reply = re.sub(r'\*\*(.+?)\*\*', r'\1', reply)
+                reply = re.sub(r'\*(.+?)\*', r'\1', reply)
+                reply = re.sub(r'`(.+?)`', r'\1', reply)
             return jsonify({'reply': reply})
         except QuotaExceededError as e:
             return jsonify({
