@@ -740,6 +740,8 @@ def generate_pdf_report(
     ts_meta=None,
     analyst_name='',
     report_title='',
+    num_cols=None,
+    cat_cols=None,
 ):
     """
     Generate laporan PDF lengkap dan customizable.
@@ -1152,13 +1154,21 @@ def generate_pdf_report(
 
         story.append(Paragraph('6.1 Pentingnya Visualisasi dalam EDA', styles['subbab']))
         story.append(Paragraph(
-            'Visualisasi data merupakan komponen esensial dalam EDA karena memungkinkan analis '
-            'untuk memahami pola, tren, distribusi, dan anomali dalam data secara intuitif '
-            'dan efisien. Berikut adalah visualisasi yang dihasilkan berdasarkan karakteristik dataset ini.',
+            'Berikut adalah visualisasi kunci yang dihasilkan secara otomatis dari dataset ini, '
+            'dipilih berdasarkan relevansi statistik (variabilitas, skewness, dan distribusi kategori) '
+            'untuk mendukung interpretasi data.',
             styles['body']
         ))
 
         charts_to_include = selected_charts or list(chart_images.keys())
+
+        if not charts_to_include:
+            story.append(Paragraph(
+                '<i>Visualisasi tidak dapat ditampilkan pada laporan ini '
+                '(periksa instalasi dependency kaleido jika masalah berlanjut).</i>',
+                styles['body']
+            ))
+            story.append(Spacer(1, 10))
 
         chart_titles = {
             'histogram':  'Distribusi Frekuensi Variabel Numerik',

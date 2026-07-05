@@ -188,11 +188,7 @@ var TRANSLATIONS = {
         nav_ts_ma        : 'Moving Average',
         nav_ts_rolling   : 'Rolling Mean',
         nav_smart_insights: 'Smart Insights',
-        nav_reporting_sys : 'Reporting System',
-        nav_dl_pdf       : 'Download Report PDF',
-        nav_dl_html      : 'Download HTML Dashboard',
-        nav_exp_excel    : 'Export to Excel',
-        nav_exp_csv      : 'Export to CSV',
+        nav_report        : 'Report',
         /* Data Cleaning */
         cleaning_desc    : 'Select operation, preview impact, then apply. All steps saved in history.',
         cleaning_ops     : 'Cleaning Operations',
@@ -291,11 +287,7 @@ var TRANSLATIONS = {
         nav_ts_ma        : 'Rata-rata Bergerak',
         nav_ts_rolling   : 'Rata-rata Bergulir',
         nav_smart_insights: 'Wawasan Cerdas',
-        nav_reporting_sys : 'Sistem Pelaporan',
-        nav_dl_pdf       : 'Unduh Laporan PDF',
-        nav_dl_html      : 'Unduh Dashboard HTML',
-        nav_exp_excel    : 'Ekspor ke Excel',
-        nav_exp_csv      : 'Ekspor ke CSV',
+        nav_report        : 'Laporan',
         /* Data Cleaning */
         cleaning_desc    : 'Pilih operasi, preview dampak, lalu apply. Semua langkah tersimpan di history.',
         cleaning_ops     : 'Operasi Cleaning',
@@ -427,11 +419,7 @@ function applyLanguage(lang) {
         'menu-ts-ma'      : t.nav_ts_ma,
         'menu-ts-rolling' : t.nav_ts_rolling,
         'menu-insights'   : t.nav_smart_insights,
-        'menu-reporting'  : t.nav_reporting_sys,
-        'menu-report-pdf' : t.nav_dl_pdf,
-        'menu-report-html': t.nav_dl_html,
-        'menu-export-excel': t.nav_exp_excel,
-        'menu-export-csv' : t.nav_exp_csv,
+        'menu-report'     : t.nav_report,
     };
     Object.keys(navMap).forEach(function(id) {
         var el = document.getElementById(id);

@@ -886,56 +886,10 @@
 
 
                 <li class="nav-item" id="menu-report">
-                    <a href="#" onclick="switchTab('report'); return false;" data-tip="High Report">
+                    <a href="#" onclick="switchTab('report'); return false;" data-tip="Report">
                         <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
-                        <span class="nav-label">High Report</span>
-                        <span class="nav-badge badge-blue">NEW</span>
+                        <span class="nav-label">Report</span>
                     </a>
-                </li>
-
-
-
-                <li class="nav-item" id="menu-reporting">
-                    <button class="nav-acc-trigger" id="acc-report-btn" onclick="toggleAcc('acc-report')"
-                        data-tip="Reporting System">
-                        <span class="nav-icon"><i class="fas fa-file-export"></i></span>
-                        <span class="nav-label">Reporting System</span>
-                        <i class="fas fa-chevron-down acc-chevron"></i>
-                    </button>
-                    <div class="nav-acc-body" id="acc-report">
-                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;">
-                            <li class="nav-sub-item" id="menu-report-pdf">
-                                <a href="{{ url_for('download_report_pdf', filename=filename) }}" target="_blank"
-                                    onclick="showDownloadToast('PDF Report')" data-tip="Download Report PDF">
-                                    <span class="nav-icon"><i class="fas fa-file-pdf" style="color:#ff3b30;"></i></span>
-                                    <span class="nav-label">Download Report PDF</span>
-                                </a>
-                            </li>
-                            <li class="nav-sub-item" id="menu-report-html">
-                                <a href="{{ url_for('download_report_html', filename=filename) }}" target="_blank"
-                                    onclick="showDownloadToast('HTML Dashboard')" data-tip="Download HTML Dashboard">
-                                    <span class="nav-icon"><i class="fas fa-file-code"
-                                            style="color:#007aff;"></i></span>
-                                    <span class="nav-label">Download HTML Dashboard</span>
-                                </a>
-                            </li>
-                            <li class="nav-sub-item" id="menu-export-excel">
-                                <a href="{{ url_for('export_excel', filename=filename) }}"
-                                    onclick="showDownloadToast('Excel Report')" data-tip="Export to Excel">
-                                    <span class="nav-icon"><i class="fas fa-file-excel"
-                                            style="color:#34c759;"></i></span>
-                                    <span class="nav-label">Export to Excel</span>
-                                </a>
-                            </li>
-                            <li class="nav-sub-item" id="menu-export-csv">
-                                <a href="{{ url_for('export_csv', filename=filename) }}"
-                                    onclick="showDownloadToast('CSV Report')" data-tip="Export to CSV">
-                                    <span class="nav-icon"><i class="fas fa-file-csv" style="color:#ff9500;"></i></span>
-                                    <span class="nav-label">Export to CSV</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
                 </li>
 
                 {% if dataset_info %}

@@ -2686,157 +2686,280 @@ var DCleaning = (function () {
 </script>
 
 
-<!-- ══════════════ TAB 9: HIGH REPORT ══════════════ -->
+<!-- ══════════════ TAB 9: REPORT — DUAL-PANE WORKSPACE ══════════════ -->
+<style>
+/* ── Report Tab: Dual-Pane ── */
+.rpt-workspace{display:flex;flex-direction:column;height:calc(100vh - 70px);overflow:hidden}
+.rpt-topbar{display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--card-bg);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.rpt-topbar-title{font-size:1.05rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.rpt-topbar-title i{color:var(--blue)}
+.rpt-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
+.rpt-action-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;border:none;font-size:.8rem;font-weight:700;font-family:inherit;cursor:pointer;transition:all .18s;text-decoration:none}
+.rpt-action-btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.rpt-btn-csv{background:#217346;color:#fff}
+.rpt-btn-json{background:#f59e0b;color:#fff}
+.rpt-btn-print{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;box-shadow:0 3px 12px rgba(37,99,235,.25)}
+
+.rpt-dualpane{display:flex;flex:1;overflow:hidden}
+.rpt-sidebar{width:340px;min-width:300px;border-right:1px solid var(--border);background:var(--card-bg);overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:18px}
+.rpt-preview-pane{flex:1;position:relative;background:#f0f4f8;overflow:hidden;display:flex;flex-direction:column}
+
+.rpt-side-section{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.rpt-side-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.rpt-side-label i{font-size:.7rem}
+.rpt-side-input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text);font-size:.82rem;font-family:inherit;transition:border .15s}
+.rpt-side-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.rpt-side-textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text);font-size:.82rem;font-family:inherit;resize:vertical;min-height:60px;transition:border .15s}
+.rpt-side-textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+
+/* Theme Cards */
+.rpt-theme-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.rpt-theme-card{padding:8px 6px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:.7rem;font-weight:700;transition:all .15s;background:var(--card-bg)}
+.rpt-theme-card:hover{border-color:var(--blue)}
+.rpt-theme-card.active{border-color:var(--blue);background:rgba(37,99,235,.06);color:var(--blue)}
+.rpt-theme-dot{width:14px;height:14px;border-radius:50%;margin:0 auto 4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+
+/* Section Toggles */
+.rpt-section-list{display:flex;flex-direction:column;gap:4px}
+.rpt-section-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--text);transition:background .12s}
+.rpt-section-item:hover{background:var(--bg)}
+.rpt-section-item input[type="checkbox"]{accent-color:var(--blue);width:14px;height:14px;flex-shrink:0}
+
+/* Language Toggle */
+.rpt-lang-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.rpt-lang-btn{flex:1;padding:7px 0;text-align:center;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s;border:none;background:var(--card-bg);color:var(--muted);font-family:inherit}
+.rpt-lang-btn.active{background:var(--blue);color:#fff}
+
+/* Preview Container */
+.rpt-preview-frame{flex:1;border:none;width:100%;display:block;background:#fff}
+.rpt-preview-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--card-bg);z-index:5}
+.rpt-preview-loading span{font-weight:700;color:var(--text);font-size:.88rem}
+
+/* Print Styles */
+@media print{
+  body *{visibility:hidden!important}
+  .rpt-preview-pane,.rpt-preview-pane *{visibility:visible!important}
+  .rpt-preview-pane{position:fixed!important;left:0;top:0;width:100%!important;height:100%!important;margin:0!important;padding:0!important;border:none!important;box-shadow:none!important;background:#fff!important;z-index:99999!important}
+  .rpt-topbar,.rpt-sidebar,.sidebar,.topbar,.nav-container{display:none!important}
+}
+</style>
+
 <div id="tab-report" class="tab-content" style="display:none;">
-  <div class="report-container">
-    <!-- Watermark -->
-    <div class="report-watermark">Kelompok 2 ITSB</div>
-
-    <!-- Hero Header -->
-    <div class="report-hero">
-      <h1><i class="fas fa-file-alt"></i> High-Quality Report</h1>
-      <p>Laporan lengkap analisis data otomatis — DS Generator Kelompok 2 ITSB</p>
-      <span class="report-date" id="report-date-badge"></span>
-    </div>
-
-    <!-- Section A: Deskripsi Web -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-globe"></i> Deskripsi Web</div>
-      <div class="report-card">
-        <h4>Auto-EDA Dashboard</h4>
-        <p>
-          Aplikasi <strong>DS Generator</strong> adalah platform web interaktif untuk analisis data eksploratif (Exploratory Data Analysis) secara otomatis.
-          Dibangun menggunakan <strong>Flask</strong> (Python) sebagai backend, <strong>Jinja2</strong> sebagai template engine, dan <strong>Plotly.js</strong> untuk visualisasi chart yang dinamis.
-          Fitur utama meliputi: upload dataset (CSV/XLSX), data cleaning otomatis, ringkasan statistik deskriptif, visualisasi interaktif, deteksi time series, hingga generation insight berbasis AI.
-          Dashboard ini dirancang agar pengguna tanpa latar belakang statistik kuat pun dapat memperoleh insight dari data secara cepat dan akurat.
-        </p>
+  <div class="rpt-workspace">
+    <!-- ── TOP ACTION BAR ── -->
+    <div class="rpt-topbar">
+      <div class="rpt-topbar-title">
+        <i class="fas fa-file-alt"></i> Report Generator
+        <span style="font-size:.7rem;font-weight:600;padding:3px 10px;border-radius:20px;
+              background:{% if is_cleaned %}rgba(5,150,105,.1);color:#059669{% else %}rgba(245,158,11,.1);color:#d97706{% endif %}">
+          {% if is_cleaned %}<i class="fas fa-check-circle"></i> Cleaned{% else %}<i class="fas fa-exclamation-triangle"></i> Raw{% endif %}
+        </span>
+      </div>
+      <div class="rpt-topbar-actions">
+        <a href="{{ url_for('export_csv', filename=filename) }}"
+           onclick="showDownloadToast('CSV Export')" class="rpt-action-btn rpt-btn-csv">
+          <i class="fas fa-file-csv"></i> Export Clean CSV
+        </a>
+        <a href="{{ url_for('export_json', filename=filename) }}"
+           onclick="showDownloadToast('JSON Export')" class="rpt-action-btn rpt-btn-json">
+          <i class="fas fa-download"></i> Download JSON
+        </a>
+        <button onclick="window.print()" class="rpt-action-btn rpt-btn-print">
+          <i class="fas fa-print"></i> Cetak Laporan PDF
+        </button>
       </div>
     </div>
 
-    <!-- Section B: Members -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-users"></i> Anggota Tim</div>
-      <div class="report-member-grid">
-        {% for m in team_members %}
-        <div class="report-member-card">
-          <img src="{{ m.photo }}" alt="{{ m.name }}" onerror="this.src='https://ui-avatars.com/api/?name={{ m.name | urlencode }}&size=72&background=4318ff&color=fff';">
-          <h4>{{ m.name }}</h4>
-          <div class="nim">NIM: {{ m.nim }}</div>
-          <span class="role-tag">{{ m.role }}</span>
-          <div class="member-links">
-            <a href="{{ m.github }}" target="_blank" title="GitHub"><i class="fab fa-github"></i></a>
+    <!-- ── DUAL-PANE: SIDEBAR + PREVIEW ── -->
+    <div class="rpt-dualpane">
+
+      <!-- ── LEFT: CUSTOMIZER SIDEBAR ── -->
+      <div class="rpt-sidebar">
+
+        <!-- Metadata -->
+        <div class="rpt-side-section">
+          <div class="rpt-side-label"><i class="fas fa-pen"></i> Metadata & Kepala Laporan</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input id="rpt-institution" class="rpt-side-input" type="text" placeholder="ITSB Data Science Lab" value="Institut Teknologi Sains Bandung">
+            <input id="rpt-analyst" class="rpt-side-input" type="text" placeholder="Nama Peneliti" value="{{ current_user.name if current_user else 'Kelompok 2' }}">
+            <input id="rpt-title" class="rpt-side-input" type="text" placeholder="Judul Laporan" value="Laporan Analisis Data Deskriptif">
           </div>
         </div>
-        {% endfor %}
-      </div>
-    </div>
 
-    <!-- Section C: Deskripsi Data -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-database"></i> Deskripsi Data</div>
-      <div class="report-data-grid">
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-file-csv"></i></div>
-          <div class="rdi-value">{{ dataset_info.name }}</div>
-          <div class="rdi-label">Dataset</div>
+        <!-- Language Toggle -->
+        <div class="rpt-side-section">
+          <div class="rpt-side-label"><i class="fas fa-globe"></i> Konfigurasi Bahasa</div>
+          <div class="rpt-lang-toggle">
+            <button class="rpt-lang-btn active" data-lang="id" onclick="rptSetLang('id')">🇮🇩 Indonesia</button>
+            <button class="rpt-lang-btn" data-lang="en" onclick="rptSetLang('en')">🌐 English</button>
+          </div>
         </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-list-ol"></i></div>
-          <div class="rdi-value">{{ metrics.total_rows }}</div>
-          <div class="rdi-label">Total Rows</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-columns"></i></div>
-          <div class="rdi-value">{{ metrics.total_columns }}</div>
-          <div class="rdi-label">Total Columns</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-weight-hanging"></i></div>
-          <div class="rdi-value">{{ dataset_info.size }}</div>
-          <div class="rdi-label">File Size</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-hashtag"></i></div>
-          <div class="rdi-value">{{ num_cols | length }}</div>
-          <div class="rdi-label">Numeric Cols</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-font"></i></div>
-          <div class="rdi-value">{{ cat_cols | length }}</div>
-          <div class="rdi-label">Categorical Cols</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-clock"></i></div>
-          <div class="rdi-value">{{ dt_cols | length }}</div>
-          <div class="rdi-label">Time Series Cols</div>
-        </div>
-        <div class="report-data-item">
-          <div class="rdi-icon"><i class="fas fa-calendar-alt"></i></div>
-          <div class="rdi-value">{{ dataset_info.time }}</div>
-          <div class="rdi-label">Upload Time</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Section D: Visualisasi -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-chart-bar"></i> Visualisasi</div>
-      <div class="report-viz-grid" id="report-viz-grid">
-        <div class="report-viz-slot" id="report-viz-1"><div class="loading-spinner" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--muted);"></i></div></div>
-        <div class="report-viz-slot" id="report-viz-2"><div class="loading-spinner" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--muted);"></i></div></div>
-        <div class="report-viz-slot" id="report-viz-3"><div class="loading-spinner" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--muted);"></i></div></div>
-        <div class="report-viz-slot" id="report-viz-4"><div class="loading-spinner" style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;color:var(--muted);"></i></div></div>
-      </div>
-    </div>
-
-    <!-- Section E: Insight -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-lightbulb"></i> Insight</div>
-      <div id="report-insights-container">
-        {% set _insights = insights_en if insights_en else [] %}
-        {% for ins in _insights %}
-        <div class="report-insight" style="border-left-color: var(--{{ ins.type }}, var(--blue));">
-          <div class="ri-header">
-            <div class="ri-icon" style="color: var(--{{ ins.type }}, var(--blue)); background: rgba(67,24,255,.08);">
-              <i class="fas {{ ins.icon }}"></i>
+        <!-- Theme Picker -->
+        <div class="rpt-side-section">
+          <div class="rpt-side-label"><i class="fas fa-palette"></i> Gaya Estetika</div>
+          <div class="rpt-theme-grid">
+            <div class="rpt-theme-card active" data-theme="academic_slate" onclick="rptSetTheme('academic_slate')">
+              <div class="rpt-theme-dot" style="background:linear-gradient(135deg,#1e293b,#4f46e5)"></div>
+              Academic<br>Slate
             </div>
-            <h4>{{ ins.title }}</h4>
+            <div class="rpt-theme-card" data-theme="modern_emerald" onclick="rptSetTheme('modern_emerald')">
+              <div class="rpt-theme-dot" style="background:linear-gradient(135deg,#059669,#d97706)"></div>
+              Modern<br>Emerald
+            </div>
+            <div class="rpt-theme-card" data-theme="editorial_charcoal" onclick="rptSetTheme('editorial_charcoal')">
+              <div class="rpt-theme-dot" style="background:linear-gradient(135deg,#1a1a2e,#6b7280)"></div>
+              Editorial<br>Charcoal
+            </div>
           </div>
-          <p>{{ ins.desc }}</p>
         </div>
-        {% endfor %}
-        {% if not _insights %}
-        <div class="report-card"><p>Belum ada insight yang dihasilkan. Pastikan data sudah bersih untuk mendapatkan insight otomatis.</p></div>
-        {% endif %}
+
+        <!-- Section Toggles -->
+        <div class="rpt-side-section">
+          <div class="rpt-side-label"><i class="fas fa-list-check"></i> Pengaturan Bagian</div>
+          <div class="rpt-section-list">
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="cover" checked> Halaman Sampul</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="completeness" checked> Matriks Kelengkapan</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="descriptive" checked> Statistik Deskriptif</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="distribution" checked> Visualisasi Distribusi</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="categorical" checked> Kardinalitas Kategorikal</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="correlation" checked> Korelasi</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="bivariate" checked> Analisis Bivariat</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="ai_summary" checked> Ringkasan AI Gemini</label>
+            <label class="rpt-section-item"><input type="checkbox" name="rpt_sec" value="signature" checked> Tanda Tangan</label>
+          </div>
+        </div>
+
+        <!-- Custom Conclusion -->
+        <div class="rpt-side-section">
+          <div class="rpt-side-label"><i class="fas fa-pen-to-square"></i> Catatan Kesimpulan Kustom</div>
+          <textarea id="rpt-conclusion" class="rpt-side-textarea" rows="3" placeholder="Tulis kesimpulan atau analisis kustom Anda di sini..."></textarea>
+        </div>
+
       </div>
-    </div>
 
-    <!-- Section F: Rekomendasi -->
-    <div class="report-section">
-      <div class="report-section-title"><i class="fas fa-tasks"></i> Rekomendasi</div>
-      {% if recommendations %}
-        {% for rec in recommendations %}
-        <div class="report-rec priority-{{ rec.priority }}">
-          <div class="rec-icon"><i class="fas {{ rec.icon }}"></i></div>
-          <div class="rec-body">
-            <h4>{{ rec.title }}</h4>
-            <p>{{ rec.desc }}</p>
-          </div>
+      <!-- ── RIGHT: LIVE PREVIEW ── -->
+      <div class="rpt-preview-pane">
+        <div id="rptPreviewLoading" class="rpt-preview-loading">
+          <i class="fas fa-circle-notch fa-spin" style="font-size:2rem;color:var(--blue)"></i>
+          <span>Menyusun pratinjau laporan...</span>
         </div>
-        {% endfor %}
-      {% else %}
-        <div class="report-card"><p>Tidak ada rekomendasi khusus. Data sudah dalam kondisi baik!</p></div>
-      {% endif %}
-    </div>
+        <iframe id="rptPreviewFrame" class="rpt-preview-frame" style="display:none;"
+                src="/dashboard/{{ filename }}/preview/html?t={{ range(1,999999)|random }}"></iframe>
+      </div>
 
-    <!-- Report Footer -->
-    <div style="text-align:center;padding:32px 0 16px;position:relative;z-index:1;">
-      <p style="font-size:.75rem;color:var(--muted);">
-        <i class="fas fa-shield-alt"></i> Generated by <strong>DS Generator — Kelompok 2 ITSB</strong> &middot; {{ dataset_info.time }}
-      </p>
     </div>
   </div>
 </div>
+
+<script>
+/* ─── Report Tab: State & Actions ─── */
+var rptState = {
+  lang: 'id',
+  theme: 'academic_slate',
+  filename: '{{ filename }}',
+  sections: ['cover','completeness','descriptive','distribution','categorical','correlation','bivariate','ai_summary','signature']
+};
+
+function rptSetLang(lang) {
+  rptState.lang = lang;
+  document.querySelectorAll('.rpt-lang-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  rptRefreshPreview();
+}
+
+function rptSetTheme(theme) {
+  rptState.theme = theme;
+  document.querySelectorAll('.rpt-theme-card').forEach(function(c) {
+    c.classList.toggle('active', c.dataset.theme === theme);
+  });
+  rptRefreshPreview();
+}
+
+function rptRefreshPreview() {
+  var frame = document.getElementById('rptPreviewFrame');
+  var loading = document.getElementById('rptPreviewLoading');
+  if (!frame) return;
+  loading.style.display = 'flex';
+  frame.style.display = 'none';
+
+  var payload = {
+    theme: rptState.theme,
+    language: rptState.lang,
+    sections: rptState.sections,
+    institution: (document.getElementById('rpt-institution') || {}).value || '',
+    analyst: (document.getElementById('rpt-analyst') || {}).value || '',
+    title: (document.getElementById('rpt-title') || {}).value || '',
+    conclusion: (document.getElementById('rpt-conclusion') || {}).value || ''
+  };
+
+  fetch('/dashboard/' + encodeURIComponent(rptState.filename) + '/preview/html/custom', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(function(resp) { return resp.text(); })
+  .then(function(html) {
+    var blob = new Blob([html], {type: 'text/html'});
+    var url = URL.createObjectURL(blob);
+    frame.onload = function() {
+      loading.style.display = 'none';
+      frame.style.display = 'block';
+      URL.revokeObjectURL(url);
+    };
+    frame.src = url;
+  })
+  .catch(function(err) {
+    loading.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--red)"></i><span>Gagal memuat pratinjau: ' + err.message + '</span>';
+  });
+}
+
+/* Listen for section checkbox changes */
+document.addEventListener('change', function(e) {
+  if (e.target.name === 'rpt_sec') {
+    rptState.sections = [];
+    document.querySelectorAll('input[name="rpt_sec"]:checked').forEach(function(cb) {
+      rptState.sections.push(cb.value);
+    });
+    rptRefreshPreview();
+  }
+});
+
+/* Listen for metadata input changes (debounced) */
+(function() {
+  var _rptDebounce = null;
+  ['rpt-institution', 'rpt-analyst', 'rpt-title', 'rpt-conclusion'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', function() {
+        clearTimeout(_rptDebounce);
+        _rptDebounce = setTimeout(rptRefreshPreview, 600);
+      });
+    }
+  });
+})();
+
+/* Init preview on tab show */
+(function() {
+  var _rptInit = false;
+  window._renderReportTab = function() {
+    if (_rptInit) return;
+    _rptInit = true;
+    var frame = document.getElementById('rptPreviewFrame');
+    var loading = document.getElementById('rptPreviewLoading');
+    if (frame) {
+      frame.onload = function() {
+        if (loading) loading.style.display = 'none';
+        frame.style.display = 'block';
+      };
+    }
+    rptRefreshPreview();
+  };
+})();
+</script>
+
+<!-- ══════════════ TAB 10: INTERPRETATION & AI ══════════════ -->
 
 <!-- ══════════════ TAB 10: INTERPRETATION & AI ══════════════ -->
 <div id="tab-interpretation" class="tab-content" style="display:none;">
@@ -2986,61 +3109,7 @@ var DCleaning = (function () {
 </div>
 
 <script>
-/* ── Report Tab: Render overview charts & date badge ── */
-(function() {
-    var _reportRendered = false;
-
-    function renderReportCharts() {
-        if (_reportRendered) return;
-        _reportRendered = true;
-
-        // Date badge
-        var dateBadge = document.getElementById('report-date-badge');
-        if (dateBadge) {
-            var now = new Date();
-            dateBadge.textContent = '📅 ' + now.toLocaleDateString('id-ID', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-        }
-
-        // Render overview charts into report viz slots
-        var slots = ['report-viz-1','report-viz-2','report-viz-3','report-viz-4'];
-        var slotKeys = [];
-
-        if (typeof overviewPayload !== 'undefined' && overviewPayload && overviewPayload.slots) {
-            var keys = Object.keys(overviewPayload.slots);
-            for (var k = 0; k < keys.length && slotKeys.length < 4; k++) {
-                var s = overviewPayload.slots[keys[k]];
-                if (s && s.chart) slotKeys.push(keys[k]);
-            }
-        }
-
-        var plotlyLayout = { margin:{t:30,b:40,l:50,r:20}, paper_bgcolor:'transparent', plot_bgcolor:'transparent', font:{color: getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#333', size:11}, height:280, autosize:true };
-        var plotlyCfg = { displayModeBar:false, responsive:true };
-
-        for (var i = 0; i < slots.length; i++) {
-            var el = document.getElementById(slots[i]);
-            if (!el) continue;
-            if (i < slotKeys.length) {
-                var slotData = overviewPayload.slots[slotKeys[i]];
-                el.innerHTML = '';
-                try {
-                    var chartObj = JSON.parse(JSON.stringify(slotData.chart));
-                    if (chartObj.layout) {
-                        Object.assign(chartObj.layout, { paper_bgcolor:'transparent', plot_bgcolor:'transparent', height:280, autosize:true });
-                        if (chartObj.layout.font) chartObj.layout.font.color = plotlyLayout.font.color;
-                    }
-                    Plotly.newPlot(el, chartObj.data, chartObj.layout, plotlyCfg);
-                } catch(e) {
-                    el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px 0;"><i class="fas fa-chart-area"></i> Chart unavailable</p>';
-                }
-            } else {
-                el.innerHTML = '<p style="text-align:center;color:var(--muted);padding:40px 0;"><i class="fas fa-info-circle"></i> No chart available</p>';
-            }
-        }
-    }
-
-    // Expose for switchTab hook
-    window._renderReportTab = renderReportCharts;
-})();
+/* ── Report Tab: old chart renderer removed — new dual-pane uses iframe preview ── */
 </script>
 
 
@@ -3506,6 +3575,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(generateInterpretation, 300);
     };
 })();
+
+/* ─── Report modals removed — replaced by dual-pane workspace ─── */
 </script>
 
 {% endblock %}

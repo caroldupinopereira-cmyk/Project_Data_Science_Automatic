@@ -655,7 +655,7 @@
           iframe.style.display = 'block';
         };
 
-        iframe.src = '/report/pdf-preview/' + encodeURIComponent(filename) + '?status=' + currentStatus + '&t=' + Date.now();
+        iframe.src = '/dashboard/' + encodeURIComponent(filename) + '/preview/pdf?t=' + Date.now();
       });
     });
 
@@ -686,10 +686,10 @@
     var exportTriggers = document.querySelectorAll('.btn-export-preview');
 
     var previewUrls = {
-      excel: '/report/excel-preview/',
-      csv: '/report/csv-preview/',
-      json: '/report/json-preview/',
-      html: '/report/html-preview/'
+      excel: null,
+      csv: null,
+      json: null,
+      html: '/dashboard/'
     };
     var previewColors = {
       excel: '#217346',
@@ -709,7 +709,14 @@
       trigger.addEventListener('click', function() {
         var type = this.dataset.type;
         var filename = this.dataset.filename;
-        var url = previewUrls[type] + encodeURIComponent(filename) + '?t=' + Date.now();
+        var baseUrl = previewUrls[type];
+        if (!baseUrl) {
+          if (typeof showDownloadToast === 'function') {
+            showDownloadToast('Preview tidak tersedia untuk ' + type.toUpperCase());
+          }
+          return;
+        }
+        var url = baseUrl + encodeURIComponent(filename) + '/preview/' + type + '?t=' + Date.now();
 
         exportTitle.textContent = previewLabels[type];
         exportIcon.className = 'fas fa-eye';

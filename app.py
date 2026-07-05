@@ -42,10 +42,61 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'csv', 'txt', 'xlsx'}
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# ─── Performance Caches ─────────────────────────────────────────────────────
+import time as _time
+
+# Cache for _get_dashboard_context(): key = filename, value = (timestamp, context_dict)
+_ctx_cache = {}
+_CTX_CACHE_TTL = 300  # 5 minutes
+
+# Cache for build_report_charts(): key = filename, value = (timestamp, chart_images_dict)
+_chart_cache = {}
+_CHART_CACHE_TTL = 600  # 10 minutes
+
+# Cache for inlined HTML assets: key = 'assets', value = dict of file contents
+_inlined_assets_cache = None
+
+# Cache for custom HTML report output: key = (filename, params_hash), value = (timestamp, html_string)
+_custom_html_cache = {}
+_CUSTOM_HTML_CACHE_TTL = 120  # 2 minutes (shorter since params change often)
+
 
 def _user_id_from_name(name):
     safe = secure_filename((name or '').strip().lower().replace(' ', '_'))
     return safe or 'user'
+
+
+def _invalidate_ctx_cache(filename):
+    """Invalidate cached context for a file (called after cleaning operations)."""
+    _ctx_cache.pop(filename, None)
+    _chart_cache.pop(filename, None)
+    _custom_html_cache.pop(filename, None)
+
+
+def _get_cached_ctx(filename):
+    """Return cached context if still valid, else None."""
+    entry = _ctx_cache.get(filename)
+    if entry and (_time.time() - entry[0]) < _CTX_CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _set_cached_ctx(filename, ctx):
+    """Store context in cache."""
+    _ctx_cache[filename] = (_time.time(), ctx)
+
+
+def _get_cached_charts(filename):
+    """Return cached chart images if still valid, else None."""
+    entry = _chart_cache.get(filename)
+    if entry and (_time.time() - entry[0]) < _CHART_CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _set_cached_charts(filename, charts):
+    """Store chart images in cache."""
+    _chart_cache[filename] = (_time.time(), charts)
 
 
 def current_user():
@@ -348,10 +399,16 @@ def _get_dashboard_context(filename):
     """
     Computes dashboard context variables.
     Secures against path traversal attacks.
+    Results are cached for 5 minutes to avoid recomputation.
     """
     safe_name = secure_filename(filename)
     if not safe_name or safe_name != filename:
         return None
+
+    # ── Check cache first ──────────────────────────────────────────────────
+    cached = _get_cached_ctx(safe_name)
+    if cached is not None:
+        return cached
 
     base_dir = _user_upload_dir()
     if not base_dir:
@@ -380,8 +437,6 @@ def _get_dashboard_context(filename):
 
     # ── Quality report (dari current df) untuk overview warning ─────────────────────
     quality_full = get_quality_report(df)
-
-    # ── Backward-compat: cleaning summary & log ───────────────────────────────
     if is_cleaned and len(sess._history) > 1:
         last_snap      = sess._history[-1]
         cleaning_log   = last_snap.summary.get('log', [])
@@ -417,8 +472,6 @@ def _get_dashboard_context(filename):
             'duplicates_removed': len(df_raw) - len(df),
             'log'               : [],
         }
-
-    quality_report = get_quality_report(df)
 
     # ── Column detection ──────────────────────────────────────────────────────
     num_cols, cat_cols, ts_cols = detect_data_types(df)
@@ -543,8 +596,8 @@ def _get_dashboard_context(filename):
     # ── Auto-generated recommendations for the Report tab ───────────────────
     recommendations = []
     # Based on data quality
-    if quality_report and hasattr(quality_report, 'get'):
-        warnings = quality_report.get('warnings', []) if isinstance(quality_report, dict) else []
+    if quality_full and hasattr(quality_full, 'get'):
+        warnings = quality_full.get('warnings', []) if isinstance(quality_full, dict) else []
         if warnings:
             recommendations.append({
                 'icon': 'fa-broom',
@@ -618,7 +671,7 @@ def _get_dashboard_context(filename):
          'github': 'https://github.com/adindaadeliafutri6-gif'},
     ]
 
-    return {
+    ctx = {
         'filename'          : safe_name,
         'data_status'       : data_status,
         'preview'           : preview_clean_html if is_cleaned else preview_raw_html,
@@ -638,7 +691,7 @@ def _get_dashboard_context(filename):
         'col_data'          : col_data,
         'dataset_info'      : dataset_info,
         'cleaning_summary'  : cleaning_summary,
-        'quality_report'    : quality_report,
+        'quality_report'    : quality_full,
         'quality_full'      : quality_full,
         'clean_opts'        : clean_opts,
         'cleaning_history'  : cleaning_history,
@@ -649,6 +702,9 @@ def _get_dashboard_context(filename):
         'recommendations'   : recommendations,
         'team_members'      : team_members,
     }
+
+    _set_cached_ctx(safe_name, ctx)
+    return ctx
 
 
 @app.route('/dashboard/<filename>')
@@ -689,6 +745,22 @@ def download_report_pdf(filename):
 
     from backend.report_generator import generate_pdf_report
     try:
+        # Generate chart images for PDF (with caching)
+        chart_images = _get_cached_charts(safe_name)
+        if chart_images is None:
+            try:
+                from backend.report_chart_builder import build_report_charts
+                chart_images = build_report_charts(
+                    df,
+                    ctx.get('num_cols', []),
+                    ctx.get('cat_cols', []),
+                    ctx['num_stats'],
+                )
+                _set_cached_charts(safe_name, chart_images)
+            except Exception as e:
+                print(f"[PDF] Chart generation failed, continuing without images: {e}")
+                chart_images = {}
+
         generate_pdf_report(
             temp_pdf_path,
             safe_name,
@@ -699,7 +771,10 @@ def download_report_pdf(filename):
             ctx['cat_stats'],
             ctx['insights'],
             ctx['cleaning_history'],
-            ctx['cleaning_summary']
+            ctx['cleaning_summary'],
+            chart_images=chart_images,
+            num_cols=ctx.get('num_cols', []),
+            cat_cols=ctx.get('cat_cols', []),
         )
         from flask import send_file
         return send_file(
@@ -712,53 +787,224 @@ def download_report_pdf(filename):
         return redirect(url_for('dashboard', filename=safe_name))
 
 
+@app.route('/dashboard/<filename>/preview/pdf')
+def preview_report_pdf(filename):
+    """Serve PDF inline for iframe preview (no download prompt)."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return 'Invalid filename', 400
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return 'Data not found', 404
+
+    temp_dir = os.path.join(_user_upload_dir(), 'temp_reports')
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_pdf_path = os.path.join(temp_dir, f"{safe_name}_preview.pdf")
+
+    sess = get_session(_session_key(safe_name))
+    df = sess.df_current
+
+    from backend.report_generator import generate_pdf_report
+    try:
+        chart_images = _get_cached_charts(safe_name)
+        if chart_images is None:
+            try:
+                from backend.report_chart_builder import build_report_charts
+                chart_images = build_report_charts(
+                    df,
+                    ctx.get('num_cols', []),
+                    ctx.get('cat_cols', []),
+                    ctx['num_stats'],
+                )
+                _set_cached_charts(safe_name, chart_images)
+            except Exception:
+                chart_images = {}
+
+        generate_pdf_report(
+            temp_pdf_path, safe_name, df,
+            ctx.get('quality_full') or ctx.get('quality_report'),
+            ctx['metrics'], ctx['num_stats'], ctx['cat_stats'],
+            ctx['insights'], ctx['cleaning_history'], ctx['cleaning_summary'],
+            chart_images=chart_images,
+            num_cols=ctx.get('num_cols', []),
+            cat_cols=ctx.get('cat_cols', []),
+        )
+        from flask import send_file
+        return send_file(temp_pdf_path, mimetype='application/pdf')
+    except Exception as e:
+        return f'Error generating preview: {e}', 500
+
+
+@app.route('/dashboard/<filename>/preview/html')
+def preview_report_html(filename):
+    """Serve HTML inline for iframe preview (no download prompt)."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return 'Invalid filename', 400
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return 'Data not found', 404
+
+    rendered = render_template('dashboard.html', **ctx)
+    inlined = inline_html_assets(rendered)
+
+    from flask import Response
+    return Response(inlined, mimetype='text/html')
+
+
+@app.route('/dashboard/<filename>/preview/html/custom', methods=['POST'])
+def preview_report_html_custom(filename):
+    """Serve custom HTML report based on sidebar params (theme, language, sections, metadata, conclusion)."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return 'Invalid filename', 400
+
+    data = request.get_json() or {}
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return 'Data not found', 404
+
+    # Map sidebar section keys to report section keys
+    SECTION_MAP = {
+        'cover': 'pendahuluan',
+        'completeness': 'dataset',
+        'descriptive': 'statistik_num',
+        'distribution': 'visualisasi',
+        'categorical': 'statistik_cat',
+        'correlation': 'visualisasi',
+        'bivariate': 'visualisasi',
+        'ai_summary': 'insight',
+        'signature': 'penutup',
+    }
+    sidebar_sections = data.get('sections', [])
+    selected_sections = []
+    for sec in sidebar_sections:
+        mapped = SECTION_MAP.get(sec)
+        if mapped and mapped not in selected_sections:
+            selected_sections.append(mapped)
+    if not selected_sections:
+        selected_sections = None  # use all
+
+    theme = data.get('theme', 'academic_slate')
+    language = data.get('language', 'id')
+    analyst_name = data.get('analyst', '')
+    report_title = data.get('title', '')
+    institution = data.get('institution', '')
+    conclusion = data.get('conclusion', '')
+
+    # Check custom HTML cache
+    cache_key = (safe_name, theme, language, tuple(selected_sections or []), analyst_name, report_title, institution, conclusion)
+    import hashlib
+    cache_hash = hashlib.md5(str(cache_key).encode()).hexdigest()
+    file_cache = _custom_html_cache.get(safe_name, {})
+    cached_entry = file_cache.get(cache_hash)
+    if cached_entry and (_time.time() - cached_entry[0]) < _CUSTOM_HTML_CACHE_TTL:
+        from flask import Response
+        return Response(cached_entry[1], mimetype='text/html')
+
+    # Get session/df
+    sess = get_session(_session_key(safe_name))
+    if sess is None:
+        return 'Session not found', 404
+    df = sess.df_current
+
+    from backend.html_report_generator import generate_html_report
+    try:
+        html = generate_html_report(
+            dest_path=None,
+            filename=safe_name,
+            df=df,
+            quality_report=ctx.get('quality_full') or ctx.get('quality_report'),
+            metrics=ctx['metrics'],
+            num_stats=ctx['num_stats'],
+            cat_stats=ctx['cat_stats'],
+            auto_insights=ctx.get('insights', []),
+            cleaning_history=ctx.get('cleaning_history', []),
+            cleaning_summary=ctx.get('cleaning_summary', {}),
+            selected_sections=selected_sections,
+            analyst_name=analyst_name,
+            report_title=report_title,
+            language=language,
+            theme=theme,
+            conclusion=conclusion,
+            institution=institution,
+            ts_meta=ctx.get('ts_meta'),
+            return_html=True,
+        )
+        if safe_name not in _custom_html_cache:
+            _custom_html_cache[safe_name] = {}
+        _custom_html_cache[safe_name][cache_hash] = (_time.time(), html)
+        from flask import Response
+        return Response(html, mimetype='text/html')
+    except Exception as e:
+        return f'Error generating custom report: {e}', 500
+
+
 def inline_html_assets(rendered_html):
     """
     Inlines style.css, jquery.min.js, plotly.min.js, script.js, dashboardOverview.js,
     and visualizationsMaster.js into the rendered HTML to ensure fully functional offline support.
+    File contents are cached after first read.
     """
+    global _inlined_assets_cache
     static_dir = os.path.join(app.root_path, 'frontend', 'static')
     import re
 
-    # 1. Inline style.css
-    css_path = os.path.join(static_dir, 'css', 'style.css')
-    if os.path.exists(css_path):
-        try:
-            with open(css_path, 'r', encoding='utf-8') as f:
-                css_content = f.read()
-            css_tag = f'<style>\n/* INLINED style.css */\n{css_content}\n</style>'
-            rendered_html = re.sub(
-                r'<link[^>]*href=[^>]*style\.css[^>]*>',
-                css_tag,
-                rendered_html
-            )
-        except Exception as e:
-            print(f"[HTML Export] Error inlining CSS: {e}")
+    # Load and cache file contents on first call
+    if _inlined_assets_cache is None:
+        _inlined_assets_cache = {}
+        # CSS
+        css_path = os.path.join(static_dir, 'css', 'style.css')
+        if os.path.exists(css_path):
+            try:
+                with open(css_path, 'r', encoding='utf-8') as f:
+                    _inlined_assets_cache['css'] = f.read()
+            except Exception:
+                pass
+        # JS files
+        js_files = {
+            'jquery': os.path.join(static_dir, 'js', 'jquery.min.js'),
+            'plotly': os.path.join(static_dir, 'js', 'plotly.min.js'),
+            'script': os.path.join(static_dir, 'js', 'script.js'),
+            'overview': os.path.join(static_dir, 'js', 'dashboardOverview.js'),
+            'vizmaster': os.path.join(static_dir, 'js', 'visualizationsMaster.js'),
+        }
+        for key, path in js_files.items():
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        _inlined_assets_cache[key] = f.read()
+                except Exception:
+                    pass
 
-    # 2. Inline Javascript files
-    js_files = [
-        (r'jquery\.min\.js', os.path.join(static_dir, 'js', 'jquery.min.js')),
-        (r'plotly\.min\.js', os.path.join(static_dir, 'js', 'plotly.min.js')),
-        (r'script\.js', os.path.join(static_dir, 'js', 'script.js')),
-        (r'dashboardOverview\.js', os.path.join(static_dir, 'js', 'dashboardOverview.js')),
-        (r'visualizationsMaster\.js', os.path.join(static_dir, 'js', 'visualizationsMaster.js')),
+    # 1. Inline CSS
+    css_content = _inlined_assets_cache.get('css')
+    if css_content:
+        css_tag = f'<style>\n/* INLINED style.css */\n{css_content}\n</style>'
+        rendered_html = re.sub(
+            r'<link[^>]*href=[^>]*style\.css[^>]*>',
+            css_tag,
+            rendered_html
+        )
+
+    # 2. Inline JS files
+    js_patterns = [
+        (r'jquery\.min\.js', 'jquery'),
+        (r'plotly\.min\.js', 'plotly'),
+        (r'script\.js', 'script'),
+        (r'dashboardOverview\.js', 'overview'),
+        (r'visualizationsMaster\.js', 'vizmaster'),
     ]
 
-    for pattern, file_path in js_files:
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    js_content = f.read()
-                # Use a lambda replacement to prevent backslash issues in file contents during re.sub
-                # Escape backslashes for JS strings safely
-                js_tag = f'<script type="text/javascript">\n/* INLINED {os.path.basename(file_path)} */\n{js_content}\n</script>'
-                
-                # We do simple string replacement if possible to avoid regex overhead on massive files (like Plotly)
-                # Let's find script tags matching pattern
-                tag_pattern = re.compile(r'<script[^>]*src=[^>]*' + pattern + r'[^>]*>\s*</script>')
-                rendered_html = tag_pattern.sub(lambda m: js_tag, rendered_html)
-            except Exception as e:
-                print(f"[HTML Export] Error inlining {os.path.basename(file_path)}: {e}")
+    for pattern, cache_key in js_patterns:
+        js_content = _inlined_assets_cache.get(cache_key)
+        if js_content:
+            js_tag = f'<script type="text/javascript">\n/* INLINED {cache_key} */\n{js_content}\n</script>'
+            tag_pattern = re.compile(r'<script[^>]*src=[^>]*' + pattern + r'[^>]*>\s*</script>')
+            rendered_html = tag_pattern.sub(lambda m: js_tag, rendered_html)
 
     return rendered_html
 
@@ -938,6 +1184,7 @@ def api_cleaning_apply(filename):
 
     result = sess.apply_step(op_type, op_params)
     if result.get('ok'):
+        _invalidate_ctx_cache(filename)
         try:
             from backend.cleaning_engine import save_cleaned_to_disk, persist_session
             user = current_user()
@@ -976,6 +1223,7 @@ def api_cleaning_undo(filename):
         result = sess.undo()
 
     if result.get('ok'):
+        _invalidate_ctx_cache(filename)
         try:
             from backend.cleaning_engine import save_cleaned_to_disk, persist_session
             user = current_user()
@@ -1000,6 +1248,7 @@ def api_cleaning_reset(filename):
 
     result = sess.reset()
     if result.get('ok'):
+        _invalidate_ctx_cache(filename)
         try:
             from backend.cleaning_engine import save_cleaned_to_disk, persist_session
             user = current_user()
@@ -1029,6 +1278,7 @@ def api_cleaning_auto_clean(filename):
 
     result = sess.auto_clean(options)
     if result.get('ok'):
+        _invalidate_ctx_cache(filename)
         try:
             from backend.cleaning_engine import save_cleaned_to_disk, persist_session
             user = current_user()
@@ -1511,6 +1761,251 @@ def ai_chat():
 
     except Exception as e:
         return jsonify({'reply': f'Error: {str(e)}'}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EXPORT JSON
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/dashboard/<filename>/export/json')
+def export_json(filename):
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        flash('Nama file tidak valid.', 'error')
+        return redirect(url_for('upload_file'))
+
+    sess, err = _get_or_init_session(safe_name)
+    if err:
+        flash(err, 'error')
+        return redirect(url_for('upload_file'))
+
+    df = sess.df_current
+
+    from io import BytesIO, StringIO
+    try:
+        json_str = df.to_json(orient='records', indent=2, force_ascii=False)
+        mem = BytesIO(json_str.encode('utf-8'))
+        from flask import send_file
+        return send_file(
+            mem,
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=f"{os.path.splitext(safe_name)[0]}_export.json"
+        )
+    except Exception as e:
+        flash(f"Gagal mengekspor data ke JSON: {e}", 'error')
+        return redirect(url_for('dashboard', filename=safe_name))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSTOM PDF — Download & Preview
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/dashboard/<filename>/report/pdf/custom', methods=['POST'])
+def download_custom_pdf(filename):
+    """Generate & download custom PDF with selected sections & charts."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({'error': 'Nama file tidak valid.'}), 400
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return jsonify({'error': 'Dataset tidak ditemukan.'}), 404
+
+    data = request.get_json() or {}
+    selected_sections = data.get('selected_sections', [])
+    selected_charts = data.get('selected_charts', [])
+    report_title = data.get('report_title', '')
+    analyst_name = data.get('analyst_name', '')
+
+    temp_dir = os.path.join(_user_upload_dir(), 'temp_reports')
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_pdf_path = os.path.join(temp_dir, f"{safe_name}_custom_report.pdf")
+
+    from backend.report_generator import generate_pdf_report
+    try:
+        sess = get_session(_session_key(safe_name))
+        df = sess.df_current
+
+        chart_images = _get_cached_charts(safe_name)
+        if chart_images is None:
+            try:
+                from backend.report_chart_builder import build_report_charts
+                chart_images = build_report_charts(
+                    df,
+                    ctx.get('num_cols', []),
+                    ctx.get('cat_cols', []),
+                    ctx['num_stats'],
+                )
+                _set_cached_charts(safe_name, chart_images)
+            except Exception as e:
+                print(f"[Custom PDF] Chart generation failed: {e}")
+                chart_images = {}
+
+        generate_pdf_report(
+            temp_pdf_path,
+            safe_name,
+            df,
+            ctx.get('quality_full') or ctx.get('quality_report'),
+            ctx['metrics'],
+            ctx['num_stats'],
+            ctx['cat_stats'],
+            ctx['insights'],
+            ctx['cleaning_history'],
+            ctx['cleaning_summary'],
+            selected_sections=selected_sections,
+            selected_charts=selected_charts,
+            chart_images=chart_images,
+            analyst_name=analyst_name,
+            report_title=report_title,
+            num_cols=ctx.get('num_cols', []),
+            cat_cols=ctx.get('cat_cols', []),
+        )
+
+        from flask import send_file
+        return send_file(
+            temp_pdf_path,
+            as_attachment=True,
+            download_name=f"Laporan_{safe_name}_{datetime.datetime.now().strftime('%Y-%m-%d')}.pdf"
+        )
+    except Exception as e:
+        return jsonify({'error': f'Gagal generate PDF: {e}'}), 500
+
+
+@app.route('/dashboard/<filename>/report/pdf/custom/preview', methods=['POST'])
+def preview_custom_pdf(filename):
+    """Preview custom PDF in new tab (POST form submission)."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return 'Invalid filename', 400
+
+    ctx = _get_dashboard_context(safe_name)
+    if ctx is None:
+        return 'Data not found', 404
+
+    import json as _json
+    selected_sections = _json.loads(request.form.get('selected_sections', '[]'))
+    selected_charts = _json.loads(request.form.get('selected_charts', '[]'))
+    report_title = request.form.get('report_title', '')
+    analyst_name = request.form.get('analyst_name', '')
+
+    temp_dir = os.path.join(_user_upload_dir(), 'temp_reports')
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_pdf_path = os.path.join(temp_dir, f"{safe_name}_custom_preview.pdf")
+
+    from backend.report_generator import generate_pdf_report
+    try:
+        sess = get_session(_session_key(safe_name))
+        df = sess.df_current
+
+        chart_images = _get_cached_charts(safe_name)
+        if chart_images is None:
+            try:
+                from backend.report_chart_builder import build_report_charts
+                chart_images = build_report_charts(
+                    df,
+                    ctx.get('num_cols', []),
+                    ctx.get('cat_cols', []),
+                    ctx['num_stats'],
+                )
+                _set_cached_charts(safe_name, chart_images)
+            except Exception:
+                chart_images = {}
+
+        generate_pdf_report(
+            temp_pdf_path,
+            safe_name,
+            df,
+            ctx.get('quality_full') or ctx.get('quality_report'),
+            ctx['metrics'],
+            ctx['num_stats'],
+            ctx['cat_stats'],
+            ctx['insights'],
+            ctx['cleaning_history'],
+            ctx['cleaning_summary'],
+            selected_sections=selected_sections,
+            selected_charts=selected_charts,
+            chart_images=chart_images,
+            analyst_name=analyst_name,
+            report_title=report_title,
+            num_cols=ctx.get('num_cols', []),
+            cat_cols=ctx.get('cat_cols', []),
+        )
+
+        from flask import send_file
+        return send_file(temp_pdf_path, mimetype='application/pdf')
+    except Exception as e:
+        return f'Error generating preview: {e}', 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSTOM EXPORT — Excel / CSV / JSON with selected columns
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/dashboard/<filename>/export/<export_type>/custom', methods=['POST'])
+def custom_export(filename, export_type):
+    """Export with user-selected columns. Supports excel, csv, json."""
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        return jsonify({'error': 'Nama file tidak valid.'}), 400
+
+    if export_type not in ('excel', 'csv', 'json'):
+        return jsonify({'error': 'Tipe export tidak valid.'}), 400
+
+    sess, err = _get_or_init_session(safe_name)
+    if err:
+        return jsonify({'error': err}), 404
+
+    data = request.get_json() or {}
+    selected_cols = data.get('selected_columns', [])
+
+    df = sess.df_current
+    if selected_cols:
+        valid_cols = [c for c in selected_cols if c in df.columns]
+        if valid_cols:
+            df = df[valid_cols]
+
+    from io import BytesIO, StringIO
+
+    try:
+        if export_type == 'excel':
+            buf = BytesIO()
+            with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Data', index=False)
+            buf.seek(0)
+            from flask import send_file
+            return send_file(
+                buf,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=f"{os.path.splitext(safe_name)[0]}_custom.xlsx"
+            )
+
+        elif export_type == 'csv':
+            str_io = StringIO()
+            df.to_csv(str_io, index=False)
+            mem = BytesIO(str_io.getvalue().encode('utf-8'))
+            from flask import send_file
+            return send_file(
+                mem,
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name=f"{os.path.splitext(safe_name)[0]}_custom.csv"
+            )
+
+        elif export_type == 'json':
+            json_str = df.to_json(orient='records', indent=2, force_ascii=False)
+            mem = BytesIO(json_str.encode('utf-8'))
+            from flask import send_file
+            return send_file(
+                mem,
+                mimetype='application/json',
+                as_attachment=True,
+                download_name=f"{os.path.splitext(safe_name)[0]}_custom.json"
+            )
+
+    except Exception as e:
+        return jsonify({'error': f'Gagal export: {e}'}), 500
 
 
 # ─────────────────────────────────────────────────────────────────────────────

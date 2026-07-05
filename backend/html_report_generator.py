@@ -62,7 +62,7 @@ def _generate_chart_images_b64(df, num_cols, cat_cols):
     })
     palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
-    for col in real_num[:8]:
+    for col in real_num[:3]:
         try:
             fig, ax = plt.subplots(figsize=(7, 4))
             vals = df_plot[col].dropna()
@@ -79,7 +79,7 @@ def _generate_chart_images_b64(df, num_cols, cat_cols):
         except Exception:
             plt.close('all')
 
-    for col in real_cat[:6]:
+    for col in real_cat[:2]:
         try:
             vc = df_plot[col].value_counts().head(10)
             if len(vc) < 1:
@@ -101,7 +101,7 @@ def _generate_chart_images_b64(df, num_cols, cat_cols):
 
     if len(real_num) >= 2:
         try:
-            cols_corr = real_num[:10]
+            cols_corr = real_num[:5]
             corr = df_plot[cols_corr].corr().fillna(0)
             fig, ax = plt.subplots(figsize=(8, 6.5))
             im = ax.imshow(corr.values, cmap='RdBu_r', vmin=-1, vmax=1, aspect='auto')
@@ -135,25 +135,6 @@ def _generate_chart_images_b64(df, num_cols, cat_cols):
             ax.legend(fontsize=8)
             fig.tight_layout()
             charts['scatter'] = _fig_to_base64(fig)
-        except Exception:
-            plt.close('all')
-
-    if len(real_num) >= 2:
-        try:
-            n_box = min(len(real_num), 8)
-            fig, ax = plt.subplots(figsize=(max(6, n_box*1.2), 5))
-            box_data = [df_plot[c].dropna().values for c in real_num[:n_box]]
-            bp = ax.boxplot(box_data, patch_artist=True, labels=real_num[:n_box])
-            for idx, patch in enumerate(bp['boxes']):
-                patch.set_facecolor(palette[idx % len(palette)])
-                patch.set_alpha(0.7)
-            for median in bp['medians']:
-                median.set_color('#ef4444')
-                median.set_linewidth(2)
-            ax.set_title('Boxplot Variabel Numerik', fontweight='bold', pad=10)
-            plt.xticks(rotation=30, ha='right', fontsize=8)
-            fig.tight_layout()
-            charts['boxplot'] = _fig_to_base64(fig)
         except Exception:
             plt.close('all')
 
@@ -241,6 +222,20 @@ _CSS = '''
   --red: #dc2626; --gray: #64748b; --purple: #7c3aed;
   --bg: #f1f5f9; --card: #ffffff; --text: #0f172a; --muted: #64748b;
   --border: #e2e8f0; --radius: 14px; --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+  --header-from: #0f172a; --header-mid: #1e3a8a; --header-to: #2563eb;
+}
+
+THEME_PLACEHOLDER {
+  --pri: #1e3a8a; --blue: #2563eb; --green: #059669; --yellow: #d97706;
+  --header-from: #0f172a; --header-mid: #1e3a8a; --header-to: #2563eb;
+}
+.modern_emerald {
+  --pri: #065f46; --blue: #059669; --green: #10b981; --yellow: #d97706;
+  --header-from: #064e3b; --header-mid: #059669; --header-to: #d97706;
+}
+.editorial_charcoal {
+  --pri: #1a1a2e; --blue: #4f46e5; --green: #6b7280; --yellow: #f59e0b;
+  --header-from: #0f0f1a; --header-mid: #1a1a2e; --header-to: #4f46e5;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -257,7 +252,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans
 }
 
 /* ── Header ── */
-.report-header{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#2563eb 100%);
+.report-header{background:linear-gradient(135deg,var(--header-from) 0%,var(--header-mid) 50%,var(--header-to) 100%);
   color:#fff;padding:56px 32px 48px;text-align:center;position:relative;overflow:hidden}
 .report-header::before{content:'';position:absolute;top:-50%;right:-20%;width:400px;height:400px;
   background:radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 70%);border-radius:50%}
@@ -469,6 +464,11 @@ def generate_html_report(
     ts_chart_images=None,
     ts_insights=None,
     ts_meta=None,
+    language='id',
+    theme='academic_slate',
+    conclusion='',
+    institution='',
+    return_html=False,
 ):
     ALL_SECTIONS = [
         'pendahuluan', 'dataset', 'kualitas', 'statistik_num',
@@ -508,17 +508,17 @@ def generate_html_report(
     ts_chart_images = ts_chart_images or {}
 
     sec_labels = {
-        'pendahuluan': 'Pendahuluan & Latar Belakang',
-        'dataset': 'Deskripsi Dataset',
-        'kualitas': 'Kualitas Data',
-        'statistik_num': 'Statistik Deskriptif — Numerik',
-        'statistik_cat': 'Statistik Deskriptif — Kategorikal',
-        'visualisasi': 'Visualisasi Data',
-        'time_series': 'Analisis Time Series',
-        'cleaning': 'Proses Data Cleaning',
-        'insight': 'Temuan Kunci & Insight',
-        'rekomendasi': 'Rekomendasi Strategis',
-        'penutup': 'Penutup',
+        'pendahuluan': 'Pendahuluan & Latar Belakang' if language == 'id' else 'Introduction & Background',
+        'dataset': 'Deskripsi Dataset' if language == 'id' else 'Dataset Description',
+        'kualitas': 'Kualitas Data' if language == 'id' else 'Data Quality',
+        'statistik_num': 'Statistik Deskriptif — Numerik' if language == 'id' else 'Descriptive Statistics — Numerical',
+        'statistik_cat': 'Statistik Deskriptif — Kategorikal' if language == 'id' else 'Descriptive Statistics — Categorical',
+        'visualisasi': 'Visualisasi Data' if language == 'id' else 'Data Visualization',
+        'time_series': 'Analisis Time Series' if language == 'id' else 'Time Series Analysis',
+        'cleaning': 'Proses Data Cleaning' if language == 'id' else 'Data Cleaning Process',
+        'insight': 'Temuan Kunci & Insight' if language == 'id' else 'Key Findings & Insights',
+        'rekomendasi': 'Rekomendasi Strategis' if language == 'id' else 'Strategic Recommendations',
+        'penutup': 'Penutup' if language == 'id' else 'Conclusion',
     }
     active_seq = [s for s in ALL_SECTIONS if s in selected_sections]
 
@@ -551,22 +551,33 @@ def generate_html_report(
 
     # ── 1. Pendahuluan ──────────────────────────────────────────────────────
     if active('pendahuluan'):
+        intro_p1 = ('Analisis Data Eksplorasi (<i>Exploratory Data Analysis — EDA</i>) merupakan langkah fundamental '
+            'dalam setiap proyek analisis data. Tujuannya adalah memahami karakteristik dasar dataset, mendeteksi '
+            'anomali, memverifikasi asumsi, serta merumuskan hipotesis awal sebelum pemodelan statistik atau '
+            'machine learning.') if language == 'id' else (
+            'Exploratory Data Analysis (EDA) is a fundamental step in every data analysis project. '
+            'Its purpose is to understand the basic characteristics of the dataset, detect anomalies, '
+            'verify assumptions, and formulate initial hypotheses before statistical modeling or machine learning.')
+        intro_p2 = (f'Laporan ini disusun secara otomatis menggunakan platform <b>DS Generator</b> yang dikembangkan oleh '
+            f'<b>Kelompok 2</b>, Program Studi Sains Data, {institution_text}.') if language == 'id' else (
+            f'This report was automatically generated using the <b>DS Generator</b> platform developed by '
+            f'<b>Kelompok 2</b>, Data Science Study Program, {institution_text}.')
+        intro_p3 = (f'Dataset yang dianalisis adalah <b>{filename}</b> dengan <b>{total_rows:,} observasi</b> dan '
+            f'<b>{total_cols} variabel</b> ({len(num_cols_list)} numerik, {len(cat_cols_list)} kategorikal). '
+            f'Tingkat kelengkapan data mencapai <b>{completeness}%</b>.') if language == 'id' else (
+            f'The analyzed dataset is <b>{filename}</b> with <b>{total_rows:,} observations</b> and '
+            f'<b>{total_cols} variables</b> ({len(num_cols_list)} numerical, {len(cat_cols_list)} categorical). '
+            f'Data completeness reaches <b>{completeness}%</b>.')
         sections_html.append(f'''
         <section id="sec-pendahuluan" class="report-section">
           <div class="sec-header">
-            <h2><span class="sec-num">{get_sec_num('pendahuluan')}</span> Pendahuluan & Latar Belakang</h2>
+            <h2><span class="sec-num">{get_sec_num('pendahuluan')}</span> {sec_labels['pendahuluan']}</h2>
             <svg class="sec-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
           </div>
           <div class="sec-body">
-            <p>Analisis Data Eksplorasi (<i>Exploratory Data Analysis — EDA</i>) merupakan langkah fundamental
-            dalam setiap proyek analisis data. Tujuannya adalah memahami karakteristik dasar dataset, mendeteksi
-            anomali, memverifikasi asumsi, serta merumuskan hipotesis awal sebelum pemodelan statistik atau
-            machine learning.</p>
-            <p>Laporan ini disusun secara otomatis menggunakan platform <b>DS Generator</b> yang dikembangkan oleh
-            <b>Kelompok 2</b>, Program Studi Sains Data, Institut Teknologi Sains Bandung (ITSB).</p>
-            <p>Dataset yang dianalisis adalah <b>{filename}</b> dengan <b>{total_rows:,} observasi</b> dan
-            <b>{total_cols} variabel</b> ({len(num_cols_list)} numerik, {len(cat_cols_list)} kategorikal).
-            Tingkat kelengkapan data mencapai <b>{completeness}%</b>.</p>
+            <p>{intro_p1}</p>
+            <p>{intro_p2}</p>
+            <p>{intro_p3}</p>
           </div>
         </section>''')
 
@@ -881,40 +892,69 @@ def generate_html_report(
 
     # ── 11. Penutup ─────────────────────────────────────────────────────────
     if active('penutup'):
+        conclusion_html = ''
+        if conclusion:
+            conclusion_html = f'<div style="background:#f0fdf4;border-left:4px solid var(--green);padding:16px 20px;border-radius:8px;margin-bottom:16px"><b>{"Kesimpulan Kustom" if language == "id" else "Custom Conclusion"}:</b><br>{conclusion}</div>'
+        penutup_p1 = (f'Laporan ini disusun oleh <b>{analyst_name or "Kelompok 2 ITSB"}</b> pada tanggal <b>{today}</b>, pukul <b>{time_str} WIB</b>.') if language == 'id' else (
+            f'This report was prepared by <b>{analyst_name or "Kelompok 2 ITSB"}</b> on <b>{today}</b> at <b>{time_str}</b>.')
+        penutup_p2 = f'{footer_text} <b>DS Generator Platform</b> — {footer_org}.'
         sections_html.append(f'''
         <section id="sec-penutup" class="report-section">
           <div class="sec-header">
-            <h2><span class="sec-num">{get_sec_num('penutup')}</span> Penutup</h2>
+            <h2><span class="sec-num">{get_sec_num('penutup')}</span> {sec_labels['penutup']}</h2>
             <svg class="sec-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
           </div>
           <div class="sec-body">
-            <p>Laporan ini disusun oleh <b>{analyst_name or 'Kelompok 2 ITSB'}</b> pada tanggal <b>{today}</b>, pukul <b>{time_str} WIB</b>.</p>
-            <p>Auto-generated by <b>DS Generator Platform</b> — Program Studi Sains Data, Institut Teknologi Sains Bandung.</p>
+            {conclusion_html}
+            <p>{penutup_p1}</p>
+            <p>{penutup_p2}</p>
           </div>
         </section>''')
 
     # ════════════════════════════════════════════════════════════════════════
     # ASSEMBLE
     # ════════════════════════════════════════════════════════════════════════
+    theme_class = theme if theme in ('academic_slate', 'modern_emerald', 'editorial_charcoal') else 'academic_slate'
+    if theme_class == 'academic_slate':
+        theme_class = ''
+    body_class = f' class="{theme_class}"' if theme_class else ''
+    css_cleaned = _CSS.replace('THEME_PLACEHOLDER', f'.{theme_class}' if theme_class else ':root')
+
+    subtitle_text = 'Exploratory Data Analysis Report' if language == 'id' else 'Exploratory Data Analysis Report'
+    toc_title = f'Daftar Isi ({len(selected_sections)} sections)' if language == 'id' else f'Table of Contents ({len(selected_sections)} sections)'
+    toc_hide = 'Sembunyikan' if language == 'id' else 'Hide'
+    search_placeholder = 'Cari section, kolom, atau insight...' if language == 'id' else 'Search sections, columns, or insights...'
+    footer_text = 'Auto-generated by' if language == 'id' else 'Auto-generated by'
+    footer_org = 'Institut Teknologi Sains Bandung (ITSB)' if language == 'id' else 'Institut Teknologi Sains Bandung (ITSB)'
+    back_to_top = 'Kembali ke atas' if language == 'id' else 'Back to top'
+    institution_text = institution or ('Institut Teknologi Sains Bandung' if language == 'id' else 'Institut Teknologi Sains Bandung')
+    status_raw = 'RAW DATA' if language == 'id' else 'RAW DATA'
+    status_clean = 'CLEAN DATA' if language == 'id' else 'CLEAN DATA'
+    baris_text = 'baris' if language == 'id' else 'rows'
+    kolom_text = 'kolom' if language == 'id' else 'columns'
+    menampilkan_text = 'Menampilkan' if language == 'id' else 'Showing'
+    dari_text = 'dari' if language == 'id' else 'of'
+    baris_lower = 'baris' if language == 'id' else 'rows'
+
     html = f'''<!DOCTYPE html>
-<html lang="id">
+<html lang="{language}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{r_title} — {filename}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>{_CSS}</style>
+<style>{css_cleaned}</style>
 </head>
-<body>
+<body{body_class}>
 
 <div class="report-header">
   <h1>{r_title}</h1>
-  <div class="subtitle">Exploratory Data Analysis Report</div>
+  <div class="subtitle">{subtitle_text}</div>
   <div class="meta">
     <span>📊 {filename}</span>
-    <span>📋 {total_rows:,} baris × {total_cols} kolom</span>
-    <span>Status: <span class="status-badge {'status-raw' if needs_cl else 'status-clean'}">{status_str}</span></span>
+    <span>📋 {total_rows:,} {baris_text} × {total_cols} {kolom_text}</span>
+    <span>Status: <span class="status-badge {'status-raw' if needs_cl else 'status-clean'}">{status_raw if needs_cl else status_clean}</span></span>
     <span>📅 {today} {time_str}</span>
     <span>👤 {analyst_name or 'Kelompok 2 ITSB'}</span>
   </div>
@@ -923,8 +963,8 @@ def generate_html_report(
 <div class="toc-container no-print">
   <div class="toc-card">
     <div class="toc-header">
-      <h3>📑 Daftar Isi ({len(selected_sections)} sections)</h3>
-      <span class="toc-toggle">Sembunyikan ▲</span>
+      <h3>📑 {toc_title}</h3>
+      <span class="toc-toggle">{toc_hide} ▲</span>
     </div>
     {toc_html}
   </div>
@@ -932,7 +972,7 @@ def generate_html_report(
 
 <div class="search-box no-print">
   <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"/></svg>
-  <input type="text" id="reportSearch" class="search-input" placeholder="Cari section, kolom, atau insight...">
+  <input type="text" id="reportSearch" class="search-input" placeholder="{search_placeholder}">
   <div id="searchCount" class="search-count"></div>
 </div>
 
@@ -941,15 +981,18 @@ def generate_html_report(
 </div>
 
 <div class="report-footer">
-  <p>Auto-generated by <a href="#">DS Generator Platform</a> — Institut Teknologi Sains Bandung (ITSB)</p>
+  <p>{footer_text} <a href="#">DS Generator Platform</a> — {footer_org}</p>
   <p>Kelompok 2 • {today}</p>
 </div>
 
-<button class="back-to-top no-print" title="Kembali ke atas">↑</button>
+<button class="back-to-top no-print" title="{back_to_top}">↑</button>
 
 <script>{_JS}</script>
 </body>
 </html>'''
+
+    if return_html:
+        return html
 
     with open(dest_path, 'w', encoding='utf-8') as f:
         f.write(html)
