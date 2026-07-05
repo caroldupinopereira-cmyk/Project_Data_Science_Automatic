@@ -1,6 +1,21 @@
 {
   "user_id": "aa3719be-e6e1-40f6-8fa8-4e6355986e6b",
   "username": "carol",
-  "files_uploaded": [],
+  "files_uploaded": [
+    {
+      "type": "upload",
+      "timestamp": "2026-07-05T01:15:02.823480",
+      "filename": "employee_raw_dataset.csv",
+      "rows": 510,
+      "cols": 13
+    },
+    {
+      "type": "upload",
+      "timestamp": "2026-07-05T01:16:20.993837",
+      "filename": "02_data.xlsx",
+      "rows": 1826,
+      "cols": 6
+    }
+  ],
   "analyses": []
 }

@@ -3,6 +3,8 @@ import json
 import uuid
 import secrets
 import hashlib
+import tempfile
+import shutil
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -30,8 +32,14 @@ class UserModel:
             return json.loads(content)
 
     def _write(self, data):
-        with open(USERS_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
+        fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.json')
+        try:
+            with os.fdopen(fd, 'w') as f:
+                json.dump(data, f, indent=2)
+            shutil.move(tmp_path, USERS_FILE)
+        except:
+            os.unlink(tmp_path)
+            raise
 
     def create_user(self, username, email, password):
         users = self._read()
