@@ -3,7 +3,7 @@ import secrets
 import functools
 import os
 from collections import defaultdict
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, make_response, current_app
 from authlib.integrations.flask_client import OAuth
 from backend.models import user_model
 from backend.user_data import create_user_folder
@@ -12,6 +12,24 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth', template_folder='../fr
 
 # ─── OAuth Setup ───────────────────────────────────────────────────────────
 oauth = OAuth()
+
+
+def _start_user_session(user):
+    session.clear()
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    session['email'] = user['email']
+    session['is_first_login'] = user.get('is_first_login', False)
+    session['profile_pic'] = user.get('profile_pic', '')
+
+
+@auth_bp.before_app_request
+def restore_remembered_user():
+    if session.get('user_id') or not request.cookies.get('remember_token'):
+        return
+    user = user_model.verify_remember_token(request.cookies['remember_token'])
+    if user:
+        _start_user_session(user)
 
 google_client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
 google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
@@ -129,11 +147,7 @@ def register():
 
         create_user_folder(user['id'], user['username'])
 
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['email'] = user['email']
-        session['is_first_login'] = user['is_first_login']
-        session['profile_pic'] = user.get('profile_pic', '')
+        _start_user_session(user)
 
         upload_url = url_for('upload_file', welcome='new', u=user['username'])
         if is_json:
@@ -148,6 +162,8 @@ def register():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET' and session.get('user_id'):
+        return redirect(url_for('upload_file'))
     if request.method == 'POST':
         if not validate_csrf_token():
             if request.is_json:
@@ -190,11 +206,7 @@ def login():
         _clear_attempts(client_ip)
         create_user_folder(user['id'], user['username'])
 
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['email'] = user['email']
-        session['is_first_login'] = user['is_first_login']
-        session['profile_pic'] = user.get('profile_pic', '')
+        _start_user_session(user)
 
         # Remember Me — secure token instead of plain-text password
         remember = request.form.get('remember') or (is_json and request.get_json().get('remember', False))
@@ -211,7 +223,7 @@ def login():
                     resp.set_cookie(
                         'remember_token', token,
                         max_age=30 * 24 * 3600,  # 30 days
-                        httponly=True, samesite='Lax', secure=False
+                        httponly=True, samesite='Lax', secure=current_app.config.get('SESSION_COOKIE_SECURE', False)
                     )
                     return resp
             return jsonify({'status': 'success', 'redirect': upload_url, 'is_first_login': first_login})
@@ -223,7 +235,7 @@ def login():
                     resp.set_cookie(
                         'remember_token', token,
                         max_age=30 * 24 * 3600,
-                        httponly=True, samesite='Lax', secure=False
+                        httponly=True, samesite='Lax', secure=current_app.config.get('SESSION_COOKIE_SECURE', False)
                     )
                     return resp
 
@@ -405,11 +417,7 @@ def google_callback():
             create_user_folder(user['id'], user['username'])
         
         # Login user
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['email'] = user['email']
-        session['is_first_login'] = user.get('is_first_login', False)
-        session['profile_pic'] = user.get('profile_pic', '')
+        _start_user_session(user)
         
         upload_url = url_for('upload_file', welcome='new' if user.get('is_first_login') else 'back', u=user['username'])
         return redirect(upload_url)
@@ -462,11 +470,7 @@ def microsoft_callback():
             create_user_folder(user['id'], user['username'])
         
         # Login user
-        session['user_id'] = user['id']
-        session['username'] = user['username']
-        session['email'] = user['email']
-        session['is_first_login'] = user.get('is_first_login', False)
-        session['profile_pic'] = user.get('profile_pic', '')
+        _start_user_session(user)
         
         upload_url = url_for('upload_file', welcome='new' if user.get('is_first_login') else 'back', u=user['username'])
         return redirect(upload_url)

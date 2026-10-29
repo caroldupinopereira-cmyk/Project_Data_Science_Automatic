@@ -98,7 +98,7 @@ class UserModel:
         users = self._read()
         for u in users:
             if u['username'] == login or u['email'] == login:
-                if check_password_hash(u['password'], password):
+                if u.get('password') and check_password_hash(u['password'], password):
                     return u, None
                 return None, 'Invalid password'
         return None, 'User not found'

@@ -1,10 +1,18 @@
 import os
 import json
+import re
+from werkzeug.utils import secure_filename
 
 USERS_ROOT = os.path.join(os.path.dirname(__file__), '..', 'data', 'users')
 
 
 def _make_folder_name(username, user_id):
+    if not isinstance(user_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', user_id):
+        raise ValueError('ID pengguna tidak valid.')
+    username = (username or 'user').strip()
+    if re.search(r'[\\/:*?"<>|\x00-\x1f]', username) or username in ('.', '..'):
+        username = secure_filename(username) or 'user'
+    username = username.rstrip('. ') or 'user'
     short_id = user_id[:8]
     return f"{username}_{short_id}"
 
@@ -78,7 +86,7 @@ def create_user_folder(user_id, username):
 
 def add_to_history(user_id, event_type, data, username=None):
     history_path = get_history_path(user_id, username)
-    if not os.path.exists(history_path):
+    if not history_path or not os.path.exists(history_path):
         return False
 
     with open(history_path, 'r') as f:
@@ -95,6 +103,8 @@ def add_to_history(user_id, event_type, data, username=None):
         history.setdefault('files_uploaded', []).append(entry)
     elif event_type == 'analysis':
         history.setdefault('analyses', []).append(entry)
+    else:
+        history.setdefault('events', []).append(entry)
 
     with open(history_path, 'w') as f:
         json.dump(history, f, indent=2)
@@ -103,7 +113,7 @@ def add_to_history(user_id, event_type, data, username=None):
 
 def get_user_history(user_id, username=None):
     history_path = get_history_path(user_id, username)
-    if not os.path.exists(history_path):
+    if not history_path or not os.path.exists(history_path):
         return {'files_uploaded': [], 'analyses': []}
     with open(history_path, 'r') as f:
         return json.load(f)

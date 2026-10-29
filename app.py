@@ -1,17 +1,18 @@
 import os
-import uuid
+import secrets
 import datetime
 import functools
 
 from dotenv import load_dotenv
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from werkzeug.utils import secure_filename
 import pandas as pd
 import numpy as np
 
-from backend.data_loader import load_data
+from backend.data_loader import load_data, DataLoadError
 from backend.preprocessing import detect_data_types
 from backend.descriptive_stats import get_summary_metrics, get_descriptive_stats
 from backend.advanced_stats import get_advanced_stats
@@ -29,14 +30,36 @@ from backend.data_sanitizer import sanitize_df_numeric_cols
 from backend.ai_settings import get_ai_settings
 from backend.interpretation_generator import generate_interpretation, build_dataset_context_text
 
+def _load_secret_key():
+    configured = os.environ.get('SECRET_KEY')
+    if configured:
+        return configured
+    path = os.path.join(BASE_DIR, '.secret_key')
+    try:
+        with open(path, encoding='utf-8') as file:
+            key = file.read().strip()
+        if key:
+            return key
+    except FileNotFoundError:
+        pass
+    key = secrets.token_hex(32)
+    try:
+        with open(path, 'x', encoding='utf-8') as file:
+            file.write(key)
+    except FileExistsError:
+        with open(path, encoding='utf-8') as file:
+            return file.read().strip() or key
+    return key
+
+
 app = Flask(__name__, template_folder='frontend/templates', static_folder='frontend/static')
-app.secret_key = 'super_secret_key_week_15_itsb'
+app.secret_key = _load_secret_key()
 
 # ─── Register Auth Blueprint ──────────────────────────────────────────────
 from backend.auth import auth_bp, oauth
 app.register_blueprint(auth_bp)
 oauth.init_app(app)
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
 ALLOWED_EXTENSIONS = {'csv', 'txt', 'xlsx'}
@@ -61,13 +84,9 @@ _custom_html_cache = {}
 _CUSTOM_HTML_CACHE_TTL = 120  # 2 minutes (shorter since params change often)
 
 
-def _user_id_from_name(name):
-    safe = secure_filename((name or '').strip().lower().replace(' ', '_'))
-    return safe or 'user'
-
-
 def _invalidate_ctx_cache(filename):
     """Invalidate cached context for a file (called after cleaning operations)."""
+    filename = _session_key(filename)
     _ctx_cache.pop(filename, None)
     _chart_cache.pop(filename, None)
     _custom_html_cache.pop(filename, None)
@@ -75,7 +94,7 @@ def _invalidate_ctx_cache(filename):
 
 def _get_cached_ctx(filename):
     """Return cached context if still valid, else None."""
-    entry = _ctx_cache.get(filename)
+    entry = _ctx_cache.get(_session_key(filename))
     if entry and (_time.time() - entry[0]) < _CTX_CACHE_TTL:
         return entry[1]
     return None
@@ -83,12 +102,12 @@ def _get_cached_ctx(filename):
 
 def _set_cached_ctx(filename, ctx):
     """Store context in cache."""
-    _ctx_cache[filename] = (_time.time(), ctx)
+    _ctx_cache[_session_key(filename)] = (_time.time(), ctx)
 
 
 def _get_cached_charts(filename):
     """Return cached chart images if still valid, else None."""
-    entry = _chart_cache.get(filename)
+    entry = _chart_cache.get(_session_key(filename))
     if entry and (_time.time() - entry[0]) < _CHART_CACHE_TTL:
         return entry[1]
     return None
@@ -96,11 +115,11 @@ def _get_cached_charts(filename):
 
 def _set_cached_charts(filename, charts):
     """Store chart images in cache."""
-    _chart_cache[filename] = (_time.time(), charts)
+    _chart_cache[_session_key(filename)] = (_time.time(), charts)
 
 
 def current_user():
-    # Sistem 1: Auth blueprint (user_id + username + email)
+    # All entry points use the account authentication session.
     user_id = session.get('user_id')
     if user_id:
         return {
@@ -108,15 +127,6 @@ def current_user():
             'name': session.get('username', 'User'),
             'email': session.get('email', ''),
             'role': 'Data Analyst',
-        }
-
-    # Sistem 2: Simple login (session['user'] dict)
-    user = session.get('user')
-    if user:
-        return {
-            'id': user.get('id') or _user_id_from_name(user.get('name')),
-            'name': user.get('name') or 'User',
-            'role': user.get('role') or 'Data Analyst',
         }
 
     return None
@@ -146,7 +156,7 @@ def require_login_for_private_routes():
     if request.endpoint and request.endpoint.startswith('auth.'):
         return None
 
-    private_prefixes = ('/upload', '/dashboard', '/api/')
+    private_prefixes = ('/upload', '/dashboard', '/timeseries', '/api/')
     if not request.path.startswith(private_prefixes):
         return None
 
@@ -165,32 +175,11 @@ def _user_upload_dir():
     if not user:
         return None
 
-    user_id = user['id']
-    user_name = user.get('name', 'user')
-
-    # Sistem 1: Auth blueprint user → data/users/<username>_<short_id>/uploaded/
-    if session.get('user_id'):
-        from backend.user_data import get_upload_dir
-        upload_dir = get_upload_dir(user_id, user_name)
-        if upload_dir:
-            os.makedirs(upload_dir, exist_ok=True)
-            return upload_dir
-
-    # Sistem 2: Simple login → data/users/<name>_<short_uuid>/uploaded/
-    from backend.user_data import get_upload_dir, get_user_dir
-    user_dir = get_user_dir(user_id, user_name)
-    if user_dir:
-        upload_dir = os.path.join(user_dir, 'uploaded')
+    from backend.user_data import get_upload_dir
+    upload_dir = get_upload_dir(user['id'], user.get('name', 'user'))
+    if upload_dir:
         os.makedirs(upload_dir, exist_ok=True)
-        return upload_dir
-
-    # Fallback
-    base_dir = os.path.abspath(app.config['UPLOAD_FOLDER'])
-    user_dir = os.path.abspath(os.path.join(base_dir, user_id))
-    if not user_dir.startswith(base_dir):
-        return None
-    os.makedirs(user_dir, exist_ok=True)
-    return user_dir
+    return upload_dir
 
 
 def _session_key(filename):
@@ -275,50 +264,26 @@ def internal_error(e):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user() and request.method == 'GET':
-        return redirect(url_for('upload_file'))
-
-    next_url = request.args.get('next') or url_for('upload_file')
-    if not next_url.startswith('/') or next_url.startswith('//'):
-        next_url = url_for('upload_file')
-
-    if request.method == 'POST':
-        name = (request.form.get('name') or '').strip()
-        role = (request.form.get('role') or 'Data Analyst').strip()
-
-        if not name:
-            flash('Nama wajib diisi untuk login.', 'error')
-            return render_template('login.html', next_url=next_url)
-
-        session['user'] = {
-            'id': str(uuid.uuid4()),
-            'name': name,
-            'role': role or 'Data Analyst',
-        }
-        from backend.user_data import create_user_folder
-        create_user_folder(session['user']['id'], name)
-        flash(f'Selamat datang, {name}!', 'success')
-        return redirect(next_url)
-
-    return render_template('login.html', next_url=next_url)
+    # Keep old links working while using one authentication implementation.
+    from backend.auth import login as account_login
+    return account_login()
 
 
 @app.route('/logout')
 def logout():
-    # Clear both auth systems
-    session.pop('user', None)
-    session.pop('user_id', None)
-    session.pop('username', None)
-    session.pop('email', None)
-    session.pop('is_first_login', None)
-    session.pop('profile_pic', None)
-    flash('Anda berhasil logout.', 'success')
-    return redirect(url_for('index'))
+    from backend.auth import logout as account_logout
+    return account_logout()
 
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload_file():
+    def upload_error(message, status=400):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'ok': False, 'error': message, 'message': message}), status
+        flash(message, 'error')
+        return redirect(request.url)
+
     uploaded_files = []
     try:
         folder_path = _user_upload_dir()
@@ -337,16 +302,16 @@ def upload_file():
 
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash('No file part', 'error')
-            return redirect(request.url)
+            return upload_error('Pilih file dataset terlebih dahulu.')
 
         file = request.files['file']
         if file.filename == '':
-            flash('No selected file', 'error')
-            return redirect(request.url)
+            return upload_error('Pilih file dataset terlebih dahulu.')
 
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
+            if not filename or not allowed_file(filename):
+                return upload_error('Nama file tidak valid.')
             folder_path = _user_upload_dir()
             filepath = os.path.join(folder_path, filename)
 
@@ -366,8 +331,13 @@ def upload_file():
 
             file.save(filepath)
 
+            try:
+                df_raw = load_data(filepath, strict=True)
+            except DataLoadError as error:
+                os.remove(filepath)
+                return upload_error(str(error))
+
             # ── Init cleaning session untuk file baru ─────────────────────────
-            df_raw = load_data(filepath)
             if df_raw is not None:
                 reset_session(_session_key(filename), df_raw)
                 # Record upload to history
@@ -390,7 +360,7 @@ def upload_file():
             flash(f'Dataset "{filename}" berhasil diunggah!', 'success')
             return redirect(url_for('dashboard', filename=filename))
         else:
-            flash('Format file tidak valid. Gunakan .csv, .txt, atau .xlsx', 'error')
+            return upload_error('Format file tidak valid. Gunakan .csv, .txt, atau .xlsx')
 
     return render_template('upload.html', history=uploaded_files)
 
@@ -426,9 +396,9 @@ def _get_dashboard_context(filename):
         return None
 
     # ── Ambil atau inisialisasi CleaningSession ───────────────────────────────
-    sess = get_session(_session_key(safe_name))
+    sess, session_error = _get_or_init_session(safe_name)
     if sess is None:
-        sess = reset_session(_session_key(safe_name), df_raw)
+        return None
 
     # ── Tentukan df yang dipakai (cleaned atau raw) ───────────────────────────
     is_cleaned   = sess.is_cleaned
@@ -899,7 +869,8 @@ def preview_report_html_custom(filename):
     cache_key = (safe_name, theme, language, tuple(selected_sections or []), analyst_name, report_title, institution, conclusion)
     import hashlib
     cache_hash = hashlib.md5(str(cache_key).encode()).hexdigest()
-    file_cache = _custom_html_cache.get(safe_name, {})
+    user_cache_key = _session_key(safe_name)
+    file_cache = _custom_html_cache.get(user_cache_key, {})
     cached_entry = file_cache.get(cache_hash)
     if cached_entry and (_time.time() - cached_entry[0]) < _CUSTOM_HTML_CACHE_TTL:
         from flask import Response
@@ -934,9 +905,9 @@ def preview_report_html_custom(filename):
             ts_meta=ctx.get('ts_meta'),
             return_html=True,
         )
-        if safe_name not in _custom_html_cache:
-            _custom_html_cache[safe_name] = {}
-        _custom_html_cache[safe_name][cache_hash] = (_time.time(), html)
+        if user_cache_key not in _custom_html_cache:
+            _custom_html_cache[user_cache_key] = {}
+        _custom_html_cache[user_cache_key][cache_hash] = (_time.time(), html)
         from flask import Response
         return Response(html, mimetype='text/html')
     except Exception as e:
@@ -1531,17 +1502,10 @@ def _load_analysis_df(filename):
     if not os.path.exists(filepath):
         return None, None, None, None
 
-    # Cek session — pakai df yang sudah cleaned jika ada
-    key = _session_key(safe_name)
-    sess = get_session(key)
-    if sess is not None:
-        df = sess.df_current
-    else:
-        df_raw = load_data(filepath)
-        if df_raw is None:
-            return None, None, None, None
-        sess = reset_session(key, df_raw)
-        df = sess.df_current
+    sess, error = _get_or_init_session(safe_name)
+    if sess is None:
+        return None, None, None, None
+    df = sess.df_current
 
     num_cols, cat_cols, ts_cols = detect_data_types(df)
     dt_cols_legacy = detect_datetime_cols(df)
@@ -1611,8 +1575,11 @@ def time_series_page(filename):
         flash('Gagal membaca dataset.', 'error')
         return redirect(url_for('upload_file'))
 
-    sess = get_session(_session_key(safe_name))
-    df = sess.df_current if sess else df_raw
+    sess, error = _get_or_init_session(safe_name)
+    if sess is None:
+        flash(error, 'error')
+        return redirect(url_for('upload_file'))
+    df = sess.df_current
 
     num_cols, cat_cols, ts_cols = detect_data_types(df)
     dt_cols_legacy = detect_datetime_cols(df)
@@ -1652,8 +1619,10 @@ def api_get_complete_timeseries():
     if df_raw is None:
         return jsonify({'status': 'error', 'error': 'Gagal membaca dataset.'}), 500
 
-    sess = get_session(_session_key(safe_name))
-    df = sess.df_current if sess else df_raw
+    sess, error = _get_or_init_session(safe_name)
+    if sess is None:
+        return jsonify({'status': 'error', 'error': error}), 404
+    df = sess.df_current
 
     num_cols, cat_cols, ts_cols = detect_data_types(df)
     dt_cols_legacy = detect_datetime_cols(df)

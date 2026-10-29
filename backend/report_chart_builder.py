@@ -55,7 +55,7 @@ def build_report_charts(df, num_cols, cat_cols, num_stats,
     if len(num_cols) >= 2:
         try:
             result = generate_master_chart(
-                df, num_cols, cat_cols, 'numerical', 'heatmap'
+                df, num_cols, cat_cols, 'bivariate', 'heatmap'
             )
             if result and result.get('ok') and result.get('chart'):
                 png = plotly_fig_to_png_bytes(

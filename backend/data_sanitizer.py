@@ -34,6 +34,11 @@ def clean_and_parse_numeric(val):
     s = str(val).strip()
     if not s:
         return np.nan
+
+    # Preserve scientific notation before removing currency/formatting symbols.
+    if re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?', s):
+        number = float(s)
+        return number if np.isfinite(number) else np.nan
         
     s_lower = s.lower()
     is_rp = 'rp' in s_lower or 'idr' in s_lower
@@ -108,7 +113,7 @@ def sanitize_series(series: pd.Series, col_name: str = "") -> pd.Series:
 
     # Already numeric — just drop NaN
     if pd.api.types.is_numeric_dtype(series):
-        return series.dropna()
+        return series.replace([np.inf, -np.inf], np.nan).dropna()
 
     # Bool → treat as 0/1
     if pd.api.types.is_bool_dtype(series):
@@ -130,7 +135,7 @@ def sanitize_series(series: pd.Series, col_name: str = "") -> pd.Series:
         if n_valid < len(series) * 0.1:
             # Less than 10% values converted → probably categorical, skip quietly
             logger.debug(f"[sanitizer] col '{col_name}' only {n_valid}/{len(series)} numeric after coerce")
-        return converted.dropna()
+        return converted.replace([np.inf, -np.inf], np.nan).dropna()
     except Exception as exc:
         logger.warning(f"[sanitizer] forced conversion failed for col '{col_name}': {exc}")
         return pd.Series(dtype=float)
@@ -189,6 +194,7 @@ def sanitize_df_numeric_cols(df: pd.DataFrame, num_cols: list) -> pd.DataFrame:
         if not pd.api.types.is_numeric_dtype(df2[col]):
             cleaned = df2[col].map(clean_and_parse_numeric)
             df2[col] = pd.to_numeric(cleaned, errors='coerce')
+        df2[col] = df2[col].replace([np.inf, -np.inf], np.nan)
     return df2
 
 
@@ -313,8 +319,6 @@ def safe_iqr_outliers(series: pd.Series):
         q1  = float(s.quantile(0.25))
         q3  = float(s.quantile(0.75))
         iqr = q3 - q1
-        if iqr == 0:
-            return (q1, q3, 0.0, 0)
         lower  = q1 - 1.5 * iqr
         upper  = q3 + 1.5 * iqr
         count  = int(((s < lower) | (s > upper)).sum())

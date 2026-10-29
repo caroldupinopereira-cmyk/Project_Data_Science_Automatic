@@ -406,10 +406,17 @@ SESSIONS_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'sessions')
 def save_cleaned_to_disk(session_key: str, cleaned_dir: str):
     """Simpan cleaned df dari session ke cleaned_dir."""
     sess = _sessions.get(session_key)
-    if not sess or not sess.is_cleaned:
+    if not sess:
         return False
     os.makedirs(cleaned_dir, exist_ok=True)
-    out_path = os.path.join(cleaned_dir, sess.filename)
+    # Session keys include the user ID; ':' is not valid in Windows filenames.
+    filename = os.path.basename(sess.filename.rsplit('::', 1)[-1])
+    filename = os.path.splitext(filename)[0] + '_cleaned.csv'
+    out_path = os.path.join(cleaned_dir, filename)
+    if not sess.is_cleaned:
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        return True
     sess.df_current.to_csv(out_path, index=False)
     return True
 
@@ -426,8 +433,9 @@ def persist_session(session_key: str):
             'filename'  : sess.filename,
             'df_raw'    : _pickle.dumps(sess.df_raw),
             'df_current': _pickle.dumps(sess.df_current),
-            'history'   : [(_pickle.dumps(s.df), s.label, s.op_type, s.op_params) for s in sess._history],
+            'history'   : [(_pickle.dumps(s.df), s.label, s.op_type, s.op_params, s.summary) for s in sess._history],
             'is_cleaned': sess.is_cleaned,
+            'ignored_cols': sess.ignored_cols,
         }
         with open(os.path.join(SESSIONS_DIR, f"{safe_key}.pkl"), 'wb') as f:
             _pickle.dump(data, f)
@@ -448,15 +456,20 @@ def load_session_from_disk(session_key: str):
         sess = CleaningSession(df_raw, data['filename'])
         # Replace history with saved state
         loaded_history = []
-        for df_bytes, label, op_type, op_params in data['history']:
+        previous_df = df_raw
+        for snapshot in data['history']:
+            df_bytes, label, op_type, op_params = snapshot[:4]
             df = _pickle.loads(df_bytes)
+            summary = snapshot[4] if len(snapshot) > 4 else CleaningSession._build_summary(previous_df, df, [])
             loaded_history.append(_Snapshot(
                 df=df, label=label, op_type=op_type, op_params=op_params,
-                summary=CleaningSession._build_summary(df, df, []),
+                summary=summary,
             ))
+            previous_df = df
         if loaded_history:
             sess._history = loaded_history
         sess.is_cleaned = data.get('is_cleaned', False)
+        sess.ignored_cols = data.get('ignored_cols', [])
         _sessions[session_key] = sess
         return sess
     except Exception:
@@ -1181,8 +1194,6 @@ def detect_data_status(df) -> str:
             continue
         q1, q3 = s.quantile(0.25), s.quantile(0.75)
         iqr = q3 - q1
-        if iqr == 0:
-            continue
         total_outliers += int(((s < q1 - 1.5 * iqr) | (s > q3 + 1.5 * iqr)).sum())
 
     if total_outliers > 0:

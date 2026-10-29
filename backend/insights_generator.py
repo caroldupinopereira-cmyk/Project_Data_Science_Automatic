@@ -52,8 +52,6 @@ def _outlier_count(series):
     try:
         q1, q3 = float(clean.quantile(0.25)), float(clean.quantile(0.75))
         iqr = q3 - q1
-        if iqr == 0:
-            return 0
         return int(((clean < q1 - 1.5 * iqr) | (clean > q3 + 1.5 * iqr)).sum())
     except Exception:
         return 0

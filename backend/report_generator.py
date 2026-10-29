@@ -1149,7 +1149,8 @@ def generate_pdf_report(
     # ════════════════════════════════════════════
     # BAB VI — VISUALISASI
     # ════════════════════════════════════════════
-    if active('visualisasi') and chart_images:
+    if active('visualisasi'):
+        chart_images = chart_images or {}
         _section_label(story, styles, 'VII', 'Visualisasi Data & Interpretasi')
 
         story.append(Paragraph('6.1 Pentingnya Visualisasi dalam EDA', styles['subbab']))

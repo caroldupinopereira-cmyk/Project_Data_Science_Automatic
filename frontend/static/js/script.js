@@ -5,6 +5,8 @@
 
 /* ─── TAB SWITCHING ─────────────────────────────────────────── */
 function switchTab(tabName) {
+    var target = document.getElementById('tab-' + tabName);
+    if (!target) return;
     /* Hide all */
     document.querySelectorAll('.tab-content').forEach(function (el) {
         el.style.display = 'none';
@@ -12,7 +14,6 @@ function switchTab(tabName) {
     });
 
     /* Show target */
-    var target = document.getElementById('tab-' + tabName);
     if (target) {
         target.style.display = 'block';
         target.classList.add('active-tab');
@@ -36,7 +37,7 @@ function switchTab(tabName) {
         timeseries  : 'menu-timeseries',
         insights    : 'menu-insights',
         report      : 'menu-report',
-        ai          : 'menu-ai',
+        interpretation: 'menu-interpretation',
     };
     var menuId = menuMap[tabName];
     if (menuId) {
@@ -49,6 +50,8 @@ function switchTab(tabName) {
         numerical   : 'acc-stats',
         categorical  : 'acc-stats',
         advanced    : 'acc-stats',
+        visualizations: 'acc-viz',
+        timeseries  : 'acc-ts',
     };
     if (accMap[tabName]) {
         var accBody = document.getElementById(accMap[tabName]);
