@@ -621,22 +621,21 @@ function sendAIMessage() {
     input.value = '';
 
     var typingEl = appendChatMsg('Sedang mengetik...', 'bot', true);
-    var ctx = window.datasetContext || '';
 
     fetch('/api/ai-chat', {
         method  : 'POST',
         headers : { 'Content-Type': 'application/json' },
-        body    : JSON.stringify({ message: msg, context: ctx }),
+        body    : JSON.stringify({ message: msg, filename: typeof vizMeta !== 'undefined' ? vizMeta.filename : '' }),
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
         var bubble = typingEl.querySelector('.chat-bubble');
-        bubble.innerHTML = data.reply || 'Tidak ada respons dari server.';
+        bubble.textContent = data.reply || 'Tidak ada respons dari server.';
         bubble.classList.remove('typing');
     })
     .catch(function () {
         var bubble = typingEl.querySelector('.chat-bubble');
-        bubble.innerHTML = '⚠️ Gagal terhubung ke AI. Pastikan ANTHROPIC_API_KEY sudah diset.';
+        bubble.textContent = 'Gagal terhubung ke AI. Periksa koneksi dan konfigurasi provider.';
         bubble.classList.remove('typing');
     });
 }
@@ -650,7 +649,8 @@ function appendChatMsg(text, role, typing) {
     div.className = 'chat-msg ' + role;
     div.innerHTML =
         '<div class="chat-avatar"><i class="fas fa-' + (role === 'bot' ? 'robot' : 'user') + '"></i></div>' +
-        '<div class="chat-bubble' + (typing ? ' typing' : '') + '">' + text + '</div>';
+        '<div class="chat-bubble' + (typing ? ' typing' : '') + '"></div>';
+    div.querySelector('.chat-bubble').textContent = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;

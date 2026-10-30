@@ -1,7 +1,6 @@
 import requests
 import json
 from datetime import datetime, timezone, timedelta
-from zoneinfo import ZoneInfo
 
 
 class AIClientError(Exception):
@@ -34,64 +33,48 @@ def call_ai(provider, api_key, model, system_prompt, user_prompt, api_keys=None)
         api_keys: Optional list of API keys to try in order. If provided,
                   overrides single api_key for fallback logic.
     """
-    if api_keys:
-        keys_to_try = [k for k in api_keys if k]
-    elif api_key:
-        keys_to_try = [api_key]
-    else:
-        raise AIClientError('API key tidak boleh kosong.')
-
+    if provider not in DEFAULT_MODELS:
+        raise AIClientError('Provider AI tidak didukung.')
+    keys_to_try = list(dict.fromkeys(k.strip() for k in (api_keys or [api_key]) if isinstance(k, str) and k.strip()))
     if not keys_to_try:
         raise AIClientError('API key tidak boleh kosong.')
-
-    if not model:
-        model = DEFAULT_MODELS.get(provider, '')
-
-    last_error = None
+    model = model or DEFAULT_MODELS[provider]
     quota_errors = []
-
-    for i, key in enumerate(keys_to_try):
+    for index, key in enumerate(keys_to_try):
         try:
             result = _call_provider(provider, key, model, system_prompt, user_prompt)
-            return result
-        except QuotaExceededError as e:
-            quota_errors.append(e)
-            last_error = e
-            if i < len(keys_to_try) - 1:
-                print(f"[AI] Key #{i+1} quota habis, mencoba key #{i+2}...")
-            continue
-        except AIClientError as e:
-            if i < len(keys_to_try) - 1:
-                continue
-            raise
+            if not isinstance(result, str) or not result.strip():
+                raise AIClientError('AI mengembalikan respons kosong. Coba lagi nanti.')
+            return result.strip()
+        except QuotaExceededError as error:
+            quota_errors.append(error)
+        except AIClientError:
+            if index == len(keys_to_try) - 1:
+                raise
+    resets = [error.reset_in_seconds for error in quota_errors if error.reset_in_seconds]
+    raise QuotaExceededError(
+        f'Batas permintaan atau kuota {provider} tercapai untuk {len(quota_errors)} API key. Coba lagi nanti atau periksa kuota provider.',
+        min(resets) if resets else None, len(quota_errors), len(keys_to_try),
+    )
 
-    if quota_errors:
-        exhausted = len(quota_errors)
-        total = len(keys_to_try)
-        reset_secs = quota_errors[-1].reset_in_seconds
-        reset_iso = quota_errors[-1].reset_time_iso
 
-        hours = reset_secs // 3600 if reset_secs else 0
-        minutes = (reset_secs % 3600) // 60 if reset_secs else 0
-
-        if exhausted >= total:
-            msg = (
-                f'Semua {total} API key Gemini sudah habis kuota harian. '
-                f'Kuota akan tersedia kembali dalam ±{hours} jam {minutes} menit '
-                f'(reset tengah malam waktu Pasifik).'
-            )
-        else:
-            msg = (
-                f'{exhausted} dari {total} API key Gemini habis kuota. '
-                f'Mencoba key berikutnya... '
-                f'Kuota reset dalam ±{hours} jam {minutes} menit.'
-            )
-
-        raise QuotaExceededError(msg, reset_secs, exhausted, total)
-
-    if last_error:
-        raise last_error
-    raise AIClientError('Gagal memanggil AI: tidak ada key tersedia.')
+def _raise_http_error(response, provider):
+    status = response.status_code
+    if status == 429:
+        retry_after = response.headers.get('Retry-After', '')
+        try:
+            retry_after = max(0, int(retry_after)) or None
+        except (TypeError, ValueError):
+            retry_after = None
+        raise QuotaExceededError(f'Batas permintaan atau kuota {provider} tercapai.', retry_after)
+    if status in (401, 403):
+        raise AIClientError(f'API key {provider} tidak valid atau tidak memiliki akses.')
+    if status == 404:
+        raise AIClientError(f'Model {provider} tidak ditemukan atau tidak dapat diakses.')
+    if status >= 500:
+        raise AIClientError(f'Layanan {provider} sedang bermasalah. Coba lagi nanti.')
+    if status != 200:
+        raise AIClientError(f'Permintaan ke {provider} ditolak (HTTP {status}). Periksa model dan konfigurasi.')
 
 
 def _call_provider(provider, api_key, model, system_prompt, user_prompt):
@@ -109,13 +92,22 @@ def _call_provider(provider, api_key, model, system_prompt, user_prompt):
             raise AIClientError(f"Provider '{provider}' tidak didukung.")
     except AIClientError:
         raise
-    except Exception as e:
-        raise AIClientError(f'Gagal memanggil AI: {str(e)}')
+    except requests.Timeout:
+        raise AIClientError('Permintaan AI melewati batas waktu. Coba lagi nanti.') from None
+    except requests.RequestException:
+        raise AIClientError('Tidak dapat terhubung ke layanan AI. Periksa koneksi dan coba lagi.') from None
+    except Exception as error:
+        status = getattr(error, 'status_code', None)
+        if status == 429:
+            raise QuotaExceededError(f'Batas permintaan atau kuota {provider} tercapai.') from None
+        if status in (401, 403):
+            raise AIClientError(f'API key {provider} tidak valid atau tidak memiliki akses.') from None
+        raise AIClientError('Layanan AI gagal memproses permintaan atau mengembalikan respons yang tidak valid.') from None
 
 
 def _call_anthropic(api_key, model, system_prompt, user_prompt):
     import anthropic
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=60.0, max_retries=0)
     message = client.messages.create(
         model=model,
         max_tokens=2048,
@@ -144,24 +136,13 @@ def _call_openai(api_key, model, system_prompt, user_prompt):
         json=payload,
         timeout=60,
     )
-    if resp.status_code != 200:
-        raise AIClientError(f'OpenAI API error: {resp.status_code}')
+    _raise_http_error(resp, 'openai')
     data = resp.json()
     return data['choices'][0]['message']['content']
 
 
-def _get_next_pacific_midnight_seconds():
-    now_utc = datetime.now(timezone.utc)
-    pacific = ZoneInfo('America/Los_Angeles')
-    now_pacific = datetime.now(pacific)
-    tomorrow = now_pacific.date() + timedelta(days=1)
-    midnight_pacific = datetime.combine(tomorrow, datetime.min.time(), tzinfo=pacific)
-    delta = midnight_pacific - now_pacific
-    return int(delta.total_seconds())
-
-
 def _call_gemini(api_key, model, system_prompt, user_prompt):
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}'
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
     payload = {
         'system_instruction': {
             'parts': [{'text': system_prompt}]
@@ -174,16 +155,8 @@ def _call_gemini(api_key, model, system_prompt, user_prompt):
             'temperature': 0.4,
         },
     }
-    resp = requests.post(url, json=payload, timeout=60)
-    if resp.status_code == 429:
-        reset_in = _get_next_pacific_midnight_seconds()
-        raise QuotaExceededError(
-            'Kuota Gemini habis untuk key ini.',
-            reset_in
-        )
-    if resp.status_code != 200:
-        detail = resp.text[:500]
-        raise AIClientError(f'Gemini API error: {resp.status_code} - {detail}')
+    resp = requests.post(url, headers={'x-goog-api-key': api_key}, json=payload, timeout=60)
+    _raise_http_error(resp, 'gemini')
     data = resp.json()
     candidates = data.get('candidates', [])
     if not candidates:
@@ -211,7 +184,6 @@ def _call_openrouter(api_key, model, system_prompt, user_prompt):
         json=payload,
         timeout=60,
     )
-    if resp.status_code != 200:
-        raise AIClientError(f'OpenRouter API error: {resp.status_code}')
+    _raise_http_error(resp, 'openrouter')
     data = resp.json()
     return data['choices'][0]['message']['content']

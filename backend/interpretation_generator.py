@@ -58,9 +58,12 @@ def build_dataset_context_text(ctx):
     parts.append(f"Rows: {di.get('rows', 'N/A')}, Columns: {di.get('cols', 'N/A')}, Size: {di.get('size', 'N/A')}")
 
     metrics = ctx.get('metrics', {})
+    quality = ctx.get('quality_full') or ctx.get('quality_report') or {}
+    summary = quality.get('summary', {})
+    parts.append(f"Data state: {'cleaned' if ctx.get('is_cleaned') else 'raw'}")
     parts.append(f"Total rows: {metrics.get('total_rows', 'N/A')}, Total cols: {metrics.get('total_columns', 'N/A')}")
-    parts.append(f"Numeric cols: {metrics.get('numeric_columns', 'N/A')}, Categorical cols: {metrics.get('categorical_columns', 'N/A')}")
-    parts.append(f"Missing values: {metrics.get('missing_values', 0)}, Duplicates: {metrics.get('duplicates', 0)}")
+    parts.append(f"Numeric cols: {metrics.get('num_count', 'N/A')}, Categorical cols: {metrics.get('cat_count', 'N/A')}")
+    parts.append(f"Missing values: {summary.get('missing_cells', metrics.get('missing_cells', 'N/A'))}, Duplicates: {summary.get('duplicate_rows', 'N/A')}")
 
     num_stats = ctx.get('num_stats', [])
     if num_stats:
@@ -122,11 +125,10 @@ def build_dataset_context_text(ctx):
                     f"p={item.get('p_anova', 'N/A')} ({sig})"
                 )
 
-    quality = ctx.get('quality_report', {})
-    if isinstance(quality, dict):
+    if isinstance(summary, dict):
         parts.append(
-            f"Data quality: missing_pct={quality.get('missing_percentage', 'N/A')}%, "
-            f"duplicate_rows={quality.get('duplicate_rows', 0)}"
+            f"Data quality: missing_pct={summary.get('missing_pct', 'N/A')}%, "
+            f"duplicate_rows={summary.get('duplicate_rows', 'N/A')}"
         )
 
     insights = ctx.get('insights_en', [])
@@ -158,7 +160,7 @@ def generate_interpretation(ctx, lang, ai_settings):
     context_text = build_dataset_context_text(ctx)
     user_prompt = f"Bahasa: {lang}\n\nDataset context:\n{context_text}"
 
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.strip()
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.strip().replace('{{', '{').replace('}}', '}')
 
     raw = call_ai(provider, api_key, model, system_prompt, user_prompt, api_keys=api_keys)
 
@@ -172,13 +174,13 @@ def generate_interpretation(ctx, lang, ai_settings):
     try:
         result = json.loads(json_str)
         expected_keys = {'summary', 'key_findings', 'recommendations', 'conclusion'}
-        if not expected_keys.issubset(result.keys()):
-            result = {
-                'summary': raw,
-                'key_findings': [],
-                'recommendations': [],
-                'conclusion': '',
-            }
+        if not isinstance(result, dict) or not expected_keys.issubset(result):
+            raise AIClientError('Format interpretasi AI tidak lengkap. Coba buat ulang.')
+        if not all(isinstance(result[key], str) for key in ('summary', 'conclusion')) or not all(
+            isinstance(result[key], list) and all(isinstance(item, str) for item in result[key])
+            for key in ('key_findings', 'recommendations')
+        ):
+            raise AIClientError('Format interpretasi AI tidak valid. Coba buat ulang.')
         if isinstance(result.get('key_findings'), list):
             result['key_findings'] = [_strip_md(str(f)) for f in result['key_findings']]
         else:
@@ -191,9 +193,4 @@ def generate_interpretation(ctx, lang, ai_settings):
         result['conclusion'] = _strip_md(str(result.get('conclusion', '')))
         return result
     except json.JSONDecodeError:
-        return {
-            'summary': raw,
-            'key_findings': [],
-            'recommendations': [],
-            'conclusion': '',
-        }
+        raise AIClientError('Respons interpretasi AI bukan JSON yang valid. Coba buat ulang.') from None

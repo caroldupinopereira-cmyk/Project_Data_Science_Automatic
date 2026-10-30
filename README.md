@@ -39,7 +39,19 @@ ditolak saat upload. Baris yang rusak tidak lagi dilewati diam-diam.
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 node tests/test_navigation.cjs
+node tests/test_ai_ui.cjs
 ```
 
 Tes navigasi memerlukan Node.js. Tes PDF memeriksa isi dan penyisipan gambar;
 hasil render Kaleido dan tata letak visual tetap perlu diperiksa langsung.
+
+Tes AI menggunakan respons tiruan untuk menguji konteks dataset, error koneksi,
+kuota, fallback API key, dan validasi respons tanpa mengirim data ke provider.
+Chat memakai statistik dataset aktif dari server, termasuk hasil cleaning.
+Waktu tunggu kuota hanya ditampilkan bila tersedia dari provider; aplikasi
+tidak menganggap semua error 429 sebagai kuota harian Gemini.
+
+Pengaturan AI dibaca dari environment atau `.env` (environment diprioritaskan).
+Restart aplikasi setelah mengganti konfigurasi. Gunakan `AI_PROVIDER`,
+`AI_MODEL`, serta API key provider yang dipilih. Key cadangan dapat memakai
+akhiran `_2` sampai `_9`, misalnya `GEMINI_API_KEY_2`.

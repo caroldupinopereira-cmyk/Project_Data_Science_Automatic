@@ -3388,7 +3388,10 @@ window.addEventListener('resize', function(){
 /* ═══════════════════════════════════════════════════
    INTERPRETATION & AI
 ═══════════════════════════════════════════════════ */
+var _interpretationPending = false;
 function generateInterpretation() {
+    if (_interpretationPending) return;
+    _interpretationPending = true;
     var btn = document.getElementById('interp-generate-btn');
     var reBtn = document.getElementById('interp-regenerate-btn');
     var loading = document.getElementById('interp-loading');
@@ -3418,7 +3421,7 @@ function generateInterpretation() {
                     errText.textContent = d.message || 'Kuota API habis. Coba lagi nanti.';
                     errDiv.style.display = 'block';
                 } else {
-                    errText.textContent = d.error || 'Gagal menghasilkan interpretasi.';
+                    errText.textContent = d.message || d.error || 'Gagal menghasilkan interpretasi.';
                     errDiv.style.display = 'block';
                 }
                 return;
@@ -3430,7 +3433,8 @@ function generateInterpretation() {
             reBtn.style.display = 'inline-flex';
             errText.textContent = 'Network error: ' + e.message;
             errDiv.style.display = 'block';
-        });
+        })
+        .finally(function() { _interpretationPending = false; });
 }
 
 function renderInterpretation(data) {
@@ -3448,7 +3452,7 @@ function renderInterpretation(data) {
         data.key_findings.forEach(function(f, i) {
             var div = document.createElement('div');
             div.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.12);font-size:.82rem;line-height:1.65;color:var(--text);';
-            div.innerHTML = '<span style="background:#f59e0b;color:#fff;font-weight:800;font-size:.68rem;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + (i+1) + '</span><span>' + f + '</span>';
+            div.innerHTML = '<span style="background:#f59e0b;color:#fff;font-weight:800;font-size:.68rem;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">' + (i+1) + '</span><span>' + escapeHtml(f) + '</span>';
             fl.appendChild(div);
         });
     } else {
@@ -3462,7 +3466,7 @@ function renderInterpretation(data) {
         data.recommendations.forEach(function(r) {
             var div = document.createElement('div');
             div.style.cssText = 'display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.12);font-size:.82rem;line-height:1.65;color:var(--text);';
-            div.innerHTML = '<div style="width:22px;height:22px;border-radius:50%;background:rgba(16,185,129,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;color:#10b981;font-size:.7rem;"><i class="fas fa-check"></i></div><span>' + r + '</span>';
+            div.innerHTML = '<div style="width:22px;height:22px;border-radius:50%;background:rgba(16,185,129,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;color:#10b981;font-size:.7rem;"><i class="fas fa-check"></i></div><span>' + escapeHtml(r) + '</span>';
             rl.appendChild(div);
         });
     } else {
@@ -3513,10 +3517,14 @@ function appendChatMsg(text, role, typing) {
     return d;
 }
 
+var _aiChatPending = false;
 function sendAIMessage() {
+    if (_aiChatPending) return;
     var input = document.getElementById('ai-input');
+    if (!input) return;
     var msg = input.value.trim();
     if (!msg) return;
+    _aiChatPending = true;
 
     appendChatMsg(escapeHtml(msg), 'user');
     input.value = '';
@@ -3547,7 +3555,8 @@ function sendAIMessage() {
     .catch(function(e){
         if (typingEl) typingEl.remove();
         appendChatMsg('Error: ' + escapeHtml(e.message), 'bot');
-    });
+    })
+    .finally(function() { _aiChatPending = false; });
 }
 
 function escapeHtml(text) {
@@ -3555,16 +3564,6 @@ function escapeHtml(text) {
     div.appendChild(document.createTextNode(text));
     return div.innerHTML;
 }
-
-// Bind AI input enter key
-document.addEventListener('DOMContentLoaded', function() {
-    var _aiInput = document.getElementById('ai-input');
-    if (_aiInput) {
-        _aiInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendAIMessage();
-        });
-    }
-});
 
 // Auto-trigger interpretation when tab is shown
 (function() {
